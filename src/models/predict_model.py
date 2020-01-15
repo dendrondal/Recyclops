@@ -1,11 +1,14 @@
+import tensorflow.keras as keras
 from keras.applications.mobilenet_v2 import MobileNetV2
 from datetime import datetime
 from keras.preprocessing.image import ImageDataGenerator
 from keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
 from keras.models import Model
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
+import click
+
 
 def load_base_model(depth: int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
@@ -20,9 +23,11 @@ def load_base_model(depth: int):
     return model
 
 
-def rmsprop(lr, decay):
+def rmsprop(lr: float, decay: float):
     return RMSprop(lr=lr, decay=decay)
 
+def adam(lr: float):
+    return Adam(lr=lr)
 
 def train_generator(training_data_directory):
     train_datagen = ImageDataGenerator(
@@ -78,22 +83,24 @@ def early():
 
 
 def tensorboard():
-    return TensorBoard(log_dir='../visualization', histogram_freq=0,
+    return TensorBoard(log_dir='../../reports', histogram_freq=0,
                        write_graph=True, write_images=False)
 
 
 if __name__ == '__main__':
     project_dir = Path(__file__).resolve().parents[2]
-    model = load_base_model(-4)
-    optimizer = rmsprop(0.045, 0)
+    model = load_base_model(-10)
+    optimizer = adam(0.01)
     model.compile(optimizer='rmsprop', loss='binary_crossentropy',
                   metrics=['accuracy'])
     model.fit_generator(
         train_generator(project_dir/'data'/'raw'/'DATASET'/'TRAIN'),
         steps_per_epoch=256,
-        epochs=100,
+        epochs=300,
         validation_data=validation_generator(project_dir/'data'/'raw'/'DATASET'/'TEST'),
         validation_steps=64,
-        callbacks=[checkpoint(project_dir/"models"/str(datetime.now())/'.h5'),
-                   early(), tensorboard()]
+        callbacks=[
+            checkpoint((project_dir/"models"/str(datetime.now()
+                                                 )).with_suffix('.h5')),
+             early(), tensorboard()]
     )

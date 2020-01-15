@@ -16,8 +16,7 @@ def main(input_filepath, output_filepath):
     """
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
-    train_generator = train_datagen.flow_from_directory(
-        f'{input_filepath}/DATASET/TRAIN/R', target_size=(224, 224))
+
 
 
 
