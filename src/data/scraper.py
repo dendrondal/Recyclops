@@ -13,7 +13,7 @@ def fetch_image_urls(
     wd:webdriver, 
     sleep_between_interactions:int=1
     ) -> List[str]:
-    
+
     def scroll_to_end(wd):
         wd.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(sleep_between_interactions)    
@@ -74,7 +74,7 @@ def hash_urls(img_urls:List[str]):
 
     return hashed_urls
 
-def download_images(folder_path:str, url:str, name:str):
+def download_image(folder_path:str, url:str, name:str):
     try:
         image_content = requests.get(url).content
 
@@ -84,7 +84,7 @@ def download_images(folder_path:str, url:str, name:str):
     try:
         image_file = io.BytesIO(image_content)
         image = Image.open(image_file).convert('RGB')
-        file_path = os.path.join(folder_path, + '.jpg')
+        file_path = os.path.join(folder_path, name + '.jpg')
         with open(file_path, 'wb') as f:
             image.save(f, "JPEG", quality=85)
 
@@ -92,8 +92,54 @@ def download_images(folder_path:str, url:str, name:str):
         print(f"ERROR - Could not save {url} - {e}")
 
 
-def resize_image(img_file:str):
-    pass
+def get_cursor(db_path:str):
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    return cur
+    
+
+def image_metadata_init(cursor):
+    make_images = """
+    CREATE TABLE images (
+        hash text PRIMARY KEY,
+        recyclable text NOT NULL,
+        stream text NOT NULL,
+        clean text NOT NULL
+    )
+    """
+    cursor.execute(make_table)
 
 
-def write_metadata(hash:str, recyclable:bool, stream:str, )
+def write_metadata(cur, hash:str, recyclable:bool, stream:str, clean:bool):
+    img_addition = "INSERT INTO images (hash, recyclable, stream, clean) VALUES (?, ?, ?, ?)"
+    cur.execute(img_addition, (hash, recyclable, stream, clean))
+
+
+@click.command()
+@click.option(
+    '--data_path', 
+    type=click.Path(), 
+    default='../../data/interim'
+    )
+@click.option('--query')
+@click.option('--result_count')
+@click.option('--recycleable', is_flag=True)
+@click.option('--stream', type=click.Choice(['paper', 'container'], case_sensitive=True))
+@click.option('--clean', is_flag=True)
+def main(data_path, query, result_count, recyclable, stream, clean):
+    db_path = os.path.join(data_path, 'metadata.sqlite3')
+    cursor = get_cursor(data_path)
+   
+    wd = webdriver.Chrome()
+    google_img_result = fetch_image_urls(query, result_count, wd)
+    hashed_results = hash_urls(google_img_result)
+    for key, val in hashed_results.items():
+        download_image(data_path, val, key)
+        write_metadata(cursor, key, recyclable, stream, clean)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
