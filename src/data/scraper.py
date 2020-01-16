@@ -1,9 +1,11 @@
 import click
-import selenium
-from PIL import io
+from selenium import webdriver
+import PIL
 import os
 import sqlite3
+import pandas as pd
 import hashlib
+import time
 from typing import List
 
 
@@ -69,7 +71,7 @@ def fetch_image_urls(
 def hash_urls(img_urls:List[str]):
     hashed_urls = dict()
     for url in img_urls:
-        key = hashlib.sha1(image_content).hexdigest()[:10]
+        key = hashlib.sha1(url).hexdigest()[:10]
         hashed_urls[key] = url
 
     return hashed_urls
@@ -96,18 +98,18 @@ def get_cursor(db_path:str):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     return cur
-    
+
 
 def image_metadata_init(cursor):
     make_images = """
-    CREATE TABLE images (
+    CREATE TABLE IF NOT EXISTS images (
         hash text PRIMARY KEY,
         recyclable text NOT NULL,
         stream text NOT NULL,
         clean text NOT NULL
     )
     """
-    cursor.execute(make_table)
+    cursor.execute(make_images)
 
 
 def write_metadata(cur, hash:str, recyclable:bool, stream:str, clean:bool):
@@ -119,23 +121,24 @@ def write_metadata(cur, hash:str, recyclable:bool, stream:str, clean:bool):
 @click.option(
     '--data_path', 
     type=click.Path(), 
-    default='../../data/interim'
+    default='/home/user/PycharmProjects/recyclables/data/interim'
     )
 @click.option('--query')
 @click.option('--result_count')
 @click.option('--recycleable', is_flag=True)
 @click.option('--stream', type=click.Choice(['paper', 'container'], case_sensitive=True))
 @click.option('--clean', is_flag=True)
-def main(data_path, query, result_count, recyclable, stream, clean):
+def main(data_path, query, result_count, recycleable, stream, clean):
     db_path = os.path.join(data_path, 'metadata.sqlite3')
+    print(db_path)
     cursor = get_cursor(data_path)
-   
+    image_metadata_init(cursor)
     wd = webdriver.Chrome()
     google_img_result = fetch_image_urls(query, result_count, wd)
     hashed_results = hash_urls(google_img_result)
     for key, val in hashed_results.items():
         download_image(data_path, val, key)
-        write_metadata(cursor, key, recyclable, stream, clean)
+        write_metadata(cursor, key, recycleable, stream, clean)
 
 
 if __name__ == '__main__':
