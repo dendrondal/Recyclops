@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "cif3r"
+version = "0.1.0"
+description = "A classifier to determine whether an object is recycleable"
+authors = ["deterministic-forest <jwilli18@go.olemiss.edu>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+click = "^7.0"
+Pillow = "^7.0.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

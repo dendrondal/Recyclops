@@ -7,7 +7,7 @@ import pandas as pd
 import hashlib
 import time
 from typing import List
-
+from pathlib import Path
 
 def fetch_image_urls(
     query:str, 
@@ -121,7 +121,7 @@ def write_metadata(cur, hash:str, recyclable:bool, stream:str, clean:bool):
 @click.option(
     '--data_path', 
     type=click.Path(), 
-    default='/home/user/PycharmProjects/recyclables/data/interim'
+    default='/home/dal/PycharmProjects/CIf3R/data/interim'
     )
 @click.option('--query')
 @click.option('--result_count')
@@ -129,11 +129,10 @@ def write_metadata(cur, hash:str, recyclable:bool, stream:str, clean:bool):
 @click.option('--stream', type=click.Choice(['paper', 'container'], case_sensitive=True))
 @click.option('--clean', is_flag=True)
 def main(data_path, query, result_count, recycleable, stream, clean):
-    db_path = os.path.join(data_path, 'metadata.sqlite3')
-    print(db_path)
-    cursor = get_cursor(data_path)
+    db_path = Path(data_path) / 'metadata.sqlite'
+    cursor = get_cursor(str(db_path))
     image_metadata_init(cursor)
-    wd = webdriver.Chrome()
+    wd = webdriver.Chrome('/home/dal/chromedriever')
     google_img_result = fetch_image_urls(query, result_count, wd)
     hashed_results = hash_urls(google_img_result)
     for key, val in hashed_results.items():

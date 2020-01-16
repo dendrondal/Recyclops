@@ -1,11 +1,10 @@
-import tensorflow.keras as keras
-from keras.applications.mobilenet_v2 import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from datetime import datetime
-from keras.preprocessing.image import ImageDataGenerator
-from keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
-from keras.models import Model
-from keras.optimizers import RMSprop, Adam
-from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import RMSprop, Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import click
 
@@ -78,7 +77,7 @@ def checkpoint(filename):
 
 
 def early():
-    return EarlyStopping(monitor='val_acc', min_delta=0, patience=10,
+    return EarlyStopping(monitor='val_accuracy', min_delta=0, patience=10,
                          verbose=1, mode='auto')
 
 
@@ -93,7 +92,7 @@ if __name__ == '__main__':
     optimizer = adam(0.01)
     model.compile(optimizer='rmsprop', loss='binary_crossentropy',
                   metrics=['accuracy'])
-    model.fit_generator(
+    model.fit(
         train_generator(project_dir/'data'/'raw'/'DATASET'/'TRAIN'),
         steps_per_epoch=256,
         epochs=300,
