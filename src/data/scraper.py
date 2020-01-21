@@ -10,6 +10,8 @@ import io
 from typing import List
 import os
 from pathlib import Path
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array
 
 
 def fetch_image_urls(
@@ -79,6 +81,18 @@ def hash_urls(img_urls: List[str]):
     return hashed_urls
 
 
+def resize_img(img:Image):
+    pass
+
+
+def pre_prediction(img:Image, model_name:Path):
+    """Function to help validation during curation process.
+    Theoretically, first CNN should label all images as 
+    recycleable"""
+    clf = load_model(model_name)
+    valid = clf.predict(img_to_array(img))
+    return valid
+
 def download_image(folder_path: str, url: str, name: str):
     try:
         image_content = requests.get(url).content
@@ -131,6 +145,7 @@ def cleanup(cur, data_path):
 @click.option("--query")
 @click.option("--result_count")
 @click.option("--recycleable", is_flag=True)
+@click.option("--model", default='2019-08-28 08:03:49.h5')
 @click.option(
     "--stream", type=click.Choice(["paper", "container"], case_sensitive=True)
 )
