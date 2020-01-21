@@ -11,7 +11,8 @@ from typing import List
 import os
 from pathlib import Path
 from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.preprocessing import image
+import numpy as np
 
 
 def fetch_image_urls(
@@ -90,8 +91,11 @@ def pre_prediction(img:Image, model_name:Path):
     Theoretically, first CNN should label all images as 
     recycleable"""
     clf = load_model(model_name)
-    valid = clf.predict(img_to_array(img))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    valid = clf.predict(x)
     return valid
+
 
 def download_image(folder_path: str, url: str, name: str):
     try:
