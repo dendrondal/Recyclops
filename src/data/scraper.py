@@ -211,8 +211,7 @@ def main(data_path, result_count, model, first_run, dict_name):
             for query in queries:
                 clean_query = query.replace(' ', '_')
                 target_path = Path(data_path) / f'{broad_category}/{clean_query}'
-                if not target_path.exists:
-                    target_path.mkdir(parents=False, exist_ok=False)
+                target_path.mkdir(parents=False, exist_ok=True)
                 logger.info(f'Starting scraping for {query}')
                 google_img_result = fetch_image_urls(query, int(result_count), wd)
                 logger.info('Image URLs obtained! Hashing URLs...')
