@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 RECYCLEABLE_UTK_GUIDELINES = {
-    'paper': ['printer paper', 'cardboard', 'cereal boxes', 'envelopes', 'sticky notes', 
+    'paper': ['pieces of paper', 'cardboard', 'cereal boxes', 'envelopes', 'sticky notes', 
     'newspapers', 'hardback books', 'journals', 'magazines', 'spiral bound notebooks', 
     'phone books', 'catalogs', 'file folders'],
     'cans': ['aluminum beverage can', 'tin can', 'soup can', 'vegetable can', 'tuna can', 
@@ -19,7 +19,7 @@ TRASH_UTK_GUIDELINES = {
     'cans': ['aerosol spray cans', 'aluminum foil', 'aluminum tray', 'pie tin'],
     'plastic': ['styrofoam containers', 'dirty plasticware', 'plastic bottle with liquid',
      'plastic bag', 'film', 'plastic straws', 'glass jars', 'glass bottles', 'CDs'],
-    'cardboard': ['cardboard food container', 'packing peanus', 'styrofoam'],
+    'cardboard': ['cardboard food container', 'packing peanuts', 'styrofoam'],
 }
 
 

@@ -12,3 +12,6 @@
 
 "Smart" recycling bins: [Bin-e](http://www.bine.world/joinus/) and [Cambridge Consultants prototype](https://www.cambridgeconsultants.com/press-releases/smarter-way-recycle)
 
+Think about active learning for model improvement
+
+Perhaps add additional classification for whether something is clean or dirty so end user can be told whether to clean an item off and bring it back

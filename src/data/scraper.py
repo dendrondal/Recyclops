@@ -10,11 +10,11 @@ import io
 from typing import List
 import os
 from pathlib import Path
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
+#from tensorflow.keras.models import load_model
+#from tensorflow.keras.preprocessing import image
 import numpy as np
 import pickle
-
+import logging
 
 def fetch_image_urls(
     query: str,
@@ -133,20 +133,19 @@ def create_master_table(cursor):
 
 
 def create_guideline_table(cursor, name:str):
-    cur = get_cursor()
     query = """
-    CREATE TABLE IF NOT EXISTS ? (
+    CREATE TABLE IF NOT EXISTS {} (
         hash text PRIMARY KEY,
         recyclable text NOT NULL,
         stream text NOT NULL
     )
-    """
-    cur.execute(query, [name])
+    """.format(name)
+    cursor.execute(query)
 
 
-def write_metadata(cursor, tbl_name:str, hash:str, reyclable:str, stream:str):
-    img_addition = "INSERT INTO ? (hash, recyclable, stream) VALUES (?, ?, ?)"
-    cursor.execute(img_addition, (tbl_name, hash, recyclable, stream))
+def write_metadata(cursor, tbl_name:str, hash:str, recyclable:str, stream:str):
+    img_addition = "INSERT INTO {} (hash, recyclable, stream) VALUES (?, ?, ?)".format(tbl_name)
+    cursor.execute(img_addition, (hash, recyclable, stream))
     write_master = "INSERT INTO img_master (hash, primary_type) VALUES (?, ?)"
     cursor.execute(write_master, (hash, stream))
 
@@ -158,32 +157,46 @@ def db_init(cur, db_name):
 
 @click.command()
 @click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
-@click.option("--result_count", default=1000)
+@click.option("--result_count", default=500)
 @click.option("--model", default="2019-08-28 08:03:49.h5")
 @click.option('--first_run', is_flag=True)
 @click.option('--dict_name')
-def main(data_path, result_count, model, first_run, dict_names):
+def main(data_path, result_count, model, first_run, dict_name):
+    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logdir = Path(data_path).parents[1] / 'reports'
+    logging.basicConfig(
+        filename=logdir / 'data.log',
+        level=logging.INFO, 
+        format=log_fmt
+        )
+    logger = logging.getLogger(__name__)
     #instantiation and path definitions go here
     db_path = Path(data_path) / "metadata.sqlite3"
-    guideline_path = Path(data_path).parents[1] / 'interim'
+    guideline_path = Path(data_path).parents[0] / 'external'
     cursor = get_cursor(str(db_path))
-    wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
-
+    try:
+        wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
+    except NotADirectoryError:
+        wd = webdriver.Chrome("/home/dal/chromedriver")
     if first_run:
+        logger.info("Creating new tables...")
         db_init(cursor, dict_name)
     #getting the recycling guidelines
     with open(guideline_path / f'{dict_name}.pickle', 'rb') as f:
         guideline_dict = pickle.load(f) 
     #main scraping iteration
     for broad_category, _dict in guideline_dict.items():
-        for primary_category, queries in _dict.items()
+        for primary_category, queries in _dict.items():
             for query in queries:
+                logger.info(f'Starting scraping for {query}')
                 google_img_result = fetch_image_urls(query, int(result_count), wd)
+                logger.info('Image URLs obtained! Hashing URLs...')
                 hashed_results = hash_urls(google_img_result)
+                logger.info('Saving images and metadata...')
                 for key, val in hashed_results.items():
-                    download_image(data_path / broad_category, val, key)
+                    download_image(Path(data_path) / broad_category, val, key)
                     write_metadata(cursor, dict_name, key, broad_category, primary_category)
-
+                logger.info(f'Finished saving images for {query}')
 
 if __name__ == "__main__":
     main()
