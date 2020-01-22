@@ -13,13 +13,14 @@ from pathlib import Path
 #from tensorflow.keras.models import load_model
 import numpy as np
 import pickle
+from threading import Thread
 import logging
 
 def fetch_image_urls(
     query: str,
     max_links_to_fetch: int,
     wd: webdriver,
-    sleep_between_interactions: int = 1,
+    sleep_between_interactions: float = 0.3,
 ) -> List[str]:
     def scroll_to_end(wd):
         wd.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -62,7 +63,7 @@ def fetch_image_urls(
                 break
 
         else:
-            time.sleep(1)
+            time.sleep(0.5)
             load_more_button = wd.find_element_by_css_selector(".ksb")
             if load_more_button:
                 wd.execute_script("document.querySelector('.ksb').click();")
@@ -105,23 +106,31 @@ def pre_prediction(img: Image, model_name: Path):
     return valid
 
 
-def download_image(folder_path: str, url: str, name: str):
-    try:
-        image_content = requests.get(url).content
+def dict_chunker(result_dict, n:int) -> List[List[str]]:
+    flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
+    keys = [flat_keys[i:i+n] for i in range(0, len(flat_keys), n)]
+    vals = [flat_vals[i:i+n] for i in range(0, len(flat_vals), n)]
+    return (keys, vals)
 
-    except Exception as e:
-        print(f"ERROR - Could not download {url} - {e}")
 
-    try:
-        image_file = io.BytesIO(image_content)
-        raw_image = Image.open(image_file).convert("RGB")
-        image = resize_img(raw_image)
-        file_path = os.path.join(folder_path, name + ".jpg")
-        with open(file_path, "wb") as f:
-            image.save(f, "JPEG", quality=85)
+def download_image(folder_path:str, names:str, urls:str):
+    for name, url in zip(names, urls):
+        try:
+            image_content = requests.get(url).content
 
-    except Exception as e:
-        print(f"ERROR - Could not save {url} - {e}")
+        except Exception as e:
+            print(f"ERROR - Could not download {url} - {e}")
+
+        try:
+            image_file = io.BytesIO(image_content)
+            raw_image = Image.open(image_file).convert("RGB")
+            image = resize_img(raw_image)
+            file_path = os.path.join(folder_path, name + ".jpg")
+            with open(file_path, "wb") as f:
+                image.save(f, "JPEG", quality=85)
+
+        except Exception as e:
+            print(f"ERROR - Could not save {url} - {e}")
 
 
 def get_cursor(db_path: str):
@@ -136,7 +145,9 @@ def create_master_table(cursor):
         hash text PRIMARY KEY,
         primary_type text NOT NULL
     )
+    
     """
+    
     cursor.execute(query)
 
 
@@ -198,14 +209,18 @@ def main(data_path, result_count, model, first_run, dict_name):
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
+                clean_query = query.replace(' ', '_')
+                target_path = Path(data_path) / f'{broad_category}/{clean_query}'
+                if not target_path.exists:
+                    target_path.mkdir(parents=False, exist_ok=False)
                 logger.info(f'Starting scraping for {query}')
                 google_img_result = fetch_image_urls(query, int(result_count), wd)
                 logger.info('Image URLs obtained! Hashing URLs...')
                 hashed_results = hash_urls(google_img_result)
                 logger.info('Saving images and metadata...')
-                for key, val in hashed_results.items():
-                    download_image(Path(data_path) / broad_category, val, key)
-                    write_metadata(cursor, dict_name, key, broad_category, primary_category)
+                chunks = dict_chunker(hashed_results, 5)
+                for names, urls in zip(chunks[0], chunks[1]):
+                    Thread(target=download_image, args=(target_path, names, urls)).start()
                 logger.info(f'Finished saving images for {query}')
 
 if __name__ == "__main__":

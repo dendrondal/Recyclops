@@ -38,6 +38,16 @@ def test_resize_lg_img():
     assert result.size[0] == 300
     assert round(result.size[1] / result.size[0]) == round(test_img.size[1] / test_img.size[0])
 
+
+def test_dict_chunker():
+    test_dict = {'foo': 0, 'bar': 2, 'whozits': 3, 'whatzits': 4, 'stuff': 5, 'things': 6}
+    result = dict_chunker(test_dict, 3)
+    assert len(result) == 2
+    assert len(result[1]) == 2
+    assert result[0][0] == ['foo', 'bar', 'whozits']
+    assert result[1][1] == [4, 5, 6]
+
+
 def test_pre_prediction_positive():
     prediction_img = Image.open(
         Path(__file__).parents[1] / "mock_data/R_example.jpg",
