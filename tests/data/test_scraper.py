@@ -2,7 +2,6 @@ import os
 from PIL import Image
 from selenium import webdriver
 from pathlib import Path
-from tensorflow.keras.preprocessing import image
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 from src.data.scraper import *
@@ -12,9 +11,11 @@ try:
 except NotADirectoryError:
     wd = webdriver.Chrome("/home/dal/chromedriver")
 
+TEST_DATA_DIR = Path(__file__).parents[1] / "mock_data"
+
 def test_fetch_image_urls():
-    result = fetch_image_urls("jaberwocky", 5, wd=wd)
-    assert len(result) == 5
+    result = fetch_image_urls("jaberwocky", 3, wd=wd)
+    assert len(result) == 3
     assert type(result[0]) == str
 
 
@@ -26,8 +27,19 @@ def test_hash_urls():
     assert type(list(result.values())[0]) == str
 
 
+def test_resize_small_img():
+    test_img = Image.open(TEST_DATA_DIR / 'small_img.jpg')
+    result = resize_img(test_img)
+    assert result.size[0] < 300
+
+def test_resize_lg_img():
+    test_img = Image.open(TEST_DATA_DIR / 'big_img.jpg')
+    result = resize_img(test_img)
+    assert result.size[0] == 300
+    assert round(result.size[1] / result.size[0]) == round(test_img.size[1] / test_img.size[0])
+
 def test_pre_prediction_positive():
-    prediction_img = image.load_img(
+    prediction_img = Image.open(
         Path(__file__).parents[1] / "mock_data/R_example.jpg",
         target_size=(224, 224)
     )
@@ -38,8 +50,8 @@ def test_pre_prediction_positive():
 
 
 def test_pre_prediction_negative():
-    prediction_img = image.load_img(
-        Path(__file__).parents[1] / "mock_data/O_example.jpg",
+    prediction_img = Image.open(
+        TEST_DATA_DIR/"O_example.jpg",
         target_size=(224, 224)
     )    
     true_result = pre_prediction(

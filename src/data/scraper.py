@@ -11,7 +11,6 @@ from typing import List
 import os
 from pathlib import Path
 #from tensorflow.keras.models import load_model
-#from tensorflow.keras.preprocessing import image
 import numpy as np
 import pickle
 import logging
@@ -74,7 +73,7 @@ def fetch_image_urls(
     return list(image_urls)
 
 
-def hash_urls(img_urls: List[str]):
+def hash_urls(img_urls:List[str]):
     hashed_urls = dict()
     for url in img_urls:
         key = str(abs(hash(url)) % (10 ** 10))
@@ -83,9 +82,17 @@ def hash_urls(img_urls: List[str]):
     return hashed_urls
 
 
-def resize_img(img: Image):
-    pass
+def resize_img(img:Image):
+    basewidth = 300
+    if img.size[0] <= basewidth:
+        return img
+    else:
+        wpercent = (basewidth/float(img.size[0]))
+        hsize = int((float(img.size[1])*float(wpercent)))
+        img = img.resize((basewidth, hsize), Image.ANTIALIAS)
+        return img
 
+from tensorflow.keras.preprocessing import image
 
 def pre_prediction(img: Image, model_name: Path):
     """Function to help validation during curation process.
@@ -107,7 +114,8 @@ def download_image(folder_path: str, url: str, name: str):
 
     try:
         image_file = io.BytesIO(image_content)
-        image = Image.open(image_file).convert("RGB")
+        raw_image = Image.open(image_file).convert("RGB")
+        image = resize_img(raw_image)
         file_path = os.path.join(folder_path, name + ".jpg")
         with open(file_path, "wb") as f:
             image.save(f, "JPEG", quality=85)
@@ -174,10 +182,7 @@ def main(data_path, result_count, model, first_run, dict_name):
     db_path = Path(data_path) / "metadata.sqlite3"
     guideline_path = Path(data_path).parents[0] / 'external'
     cursor = get_cursor(str(db_path))
-    try:
-        wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
-    except NotADirectoryError:
-        wd = webdriver.Chrome("/home/dal/chromedriver")
+
     if first_run:
         logger.info("Creating new tables...")
         db_init(cursor, dict_name)
@@ -187,6 +192,11 @@ def main(data_path, result_count, model, first_run, dict_name):
     #main scraping iteration
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
+            #accounting for discrepancy between Ubuntu 16.04 and 18.04
+            try:
+                wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
+            except NotADirectoryError:
+                wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
                 logger.info(f'Starting scraping for {query}')
                 google_img_result = fetch_image_urls(query, int(result_count), wd)
