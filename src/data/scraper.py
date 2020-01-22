@@ -82,11 +82,11 @@ def hash_urls(img_urls: List[str]):
     return hashed_urls
 
 
-def resize_img(img:Image):
+def resize_img(img: Image):
     pass
 
 
-def pre_prediction(img:Image, model_name:Path):
+def pre_prediction(img: Image, model_name: Path):
     """Function to help validation during curation process.
     Theoretically, first CNN should label all images as 
     recycleable"""
@@ -149,7 +149,7 @@ def cleanup(cur, data_path):
 @click.option("--query")
 @click.option("--result_count")
 @click.option("--recycleable", is_flag=True)
-@click.option("--model", default='2019-08-28 08:03:49.h5')
+@click.option("--model", default="2019-08-28 08:03:49.h5")
 @click.option(
     "--stream", type=click.Choice(["paper", "container"], case_sensitive=True)
 )
