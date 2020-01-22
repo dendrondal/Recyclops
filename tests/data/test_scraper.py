@@ -3,6 +3,7 @@ from PIL import Image
 from selenium import webdriver
 from pathlib import Path
 from tensorflow.keras.preprocessing import image
+from tensorflow.keras.utils import to_categorical
 import numpy as np
 from src.data.scraper import *
 
@@ -33,7 +34,7 @@ def test_pre_prediction_positive():
     true_result = pre_prediction(
         prediction_img, Path(__file__).parents[2] / "models/2019-08-28 08:03:49.h5"
     )
-    assert true_result == 1
+    assert to_categorical(true_result) == 1
 
 
 def test_pre_prediction_negative():
@@ -44,4 +45,4 @@ def test_pre_prediction_negative():
     true_result = pre_prediction(
         prediction_img, Path(__file__).parents[2] / "models/2019-08-28 08:03:49.h5"
     )
-    assert true_result == 0
+    assert to_categorical(true_result) == 0
