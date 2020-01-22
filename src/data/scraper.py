@@ -13,6 +13,7 @@ from pathlib import Path
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import numpy as np
+import pickle
 
 
 def fetch_image_urls(
@@ -121,49 +122,67 @@ def get_cursor(db_path: str):
     return cur
 
 
-def image_metadata_init(cursor):
-    make_images = """
-    CREATE TABLE IF NOT EXISTS images (
+def create_master_table(cursor):
+    query = """
+    CREATE TABLE IF NOT EXISTS img_master (
         hash text PRIMARY KEY,
-        recyclable text NOT NULL,
-        stream text NOT NULL,
-        clean text NOT NULL
+        primary_type text NOT NULL
     )
     """
-    cursor.execute(make_images)
+    cursor.execute(query)
 
 
-def write_metadata(cur, hash: str, recyclable: bool, stream: str, clean: bool):
-    img_addition = (
-        "INSERT INTO images (hash, recyclable, stream, clean) VALUES (?, ?, ?, ?)"
+def create_guideline_table(cursor, name:str):
+    cur = get_cursor()
+    query = """
+    CREATE TABLE IF NOT EXISTS ? (
+        hash text PRIMARY KEY,
+        recyclable text NOT NULL,
+        stream text NOT NULL
     )
-    cur.execute(img_addition, (hash, recyclable, stream, clean))
+    """
+    cur.execute(query, [name])
 
 
-def cleanup(cur, data_path):
-    pass
+def write_metadata(cursor, tbl_name:str, hash:str, reyclable:str, stream:str):
+    img_addition = "INSERT INTO ? (hash, recyclable, stream) VALUES (?, ?, ?)"
+    cursor.execute(img_addition, (tbl_name, hash, recyclable, stream))
+    write_master = "INSERT INTO img_master (hash, primary_type) VALUES (?, ?)"
+    cursor.execute(write_master, (hash, stream))
+
+        
+def db_init(cur, db_name):
+    create_master_table(cur)
+    create_guideline_table(cur, db_name)
 
 
 @click.command()
 @click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
-@click.option("--query")
-@click.option("--result_count")
-@click.option("--recycleable", is_flag=True)
+@click.option("--result_count", default=1000)
 @click.option("--model", default="2019-08-28 08:03:49.h5")
-@click.option(
-    "--stream", type=click.Choice(["paper", "container"], case_sensitive=True)
-)
-@click.option("--clean", is_flag=True)
-def main(data_path, query, result_count, recycleable, stream, clean):
+@click.option('--first_run', is_flag=True)
+@click.option('--dict_name')
+def main(data_path, result_count, model, first_run, dict_names):
+    #instantiation and path definitions go here
     db_path = Path(data_path) / "metadata.sqlite3"
+    guideline_path = Path(data_path).parents[1] / 'interim'
     cursor = get_cursor(str(db_path))
-    image_metadata_init(cursor)
     wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
-    google_img_result = fetch_image_urls(query, int(result_count), wd)
-    hashed_results = hash_urls(google_img_result)
-    for key, val in hashed_results.items():
-        download_image(data_path, val, key)
-        write_metadata(cursor, key, recycleable, stream, clean)
+
+    if first_run:
+        db_init(cursor, dict_name)
+    #getting the recycling guidelines
+    with open(guideline_path / f'{dict_name}.pickle', 'rb') as f:
+        guideline_dict = pickle.load(f) 
+    #main scraping iteration
+    for broad_category, _dict in guideline_dict.items():
+        for primary_category, queries in _dict.items()
+            for query in queries:
+                google_img_result = fetch_image_urls(query, int(result_count), wd)
+                hashed_results = hash_urls(google_img_result)
+                for key, val in hashed_results.items():
+                    download_image(data_path / broad_category, val, key)
+                    write_metadata(cursor, dict_name, key, broad_category, primary_category)
 
 
 if __name__ == "__main__":

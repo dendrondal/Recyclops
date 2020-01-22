@@ -1,13 +1,6 @@
-import sqlite3
+import pickle
 from pathlib import Path
-import subprocess
-import click
 
-
-def get_cursor(db_path:str):
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    return cur
 
 RECYCLEABLE_UTK_GUIDELINES = {
     'paper': ['printer paper', 'cardboard', 'cereal boxes', 'envelopes', 'sticky notes', 
@@ -29,54 +22,17 @@ TRASH_UTK_GUIDELINES = {
     'cardboard': ['cardboard food container', 'packing peanus', 'styrofoam'],
 }
 
-UTK = {'R': RECYCLEABLE_UTK_GUIDELINES, 'O': TRASH_UTK_GUIDELINES}
 
-UNIVERSITIES = [UTK]
-
-def create_master_table(cursor):
-    query = """
-    CREATE TABLE IF NOT EXISTS img_master (
-        hash text PRIMARY KEY,
-        primary_type text NOT NULL
-    )
-    """
-    cursor.execute(query)
+UNIVERSITIES = {'UTK': {'R': RECYCLEABLE_UTK_GUIDELINES, 'O': TRASH_UTK_GUIDELINES}}
 
 
-def create_guideline_table(cursor, name:str):
-    cur = get_cursor()
-    query = """
-    CREATE TABLE IF NOT EXISTS ? (
-        hash text PRIMARY KEY,
-        recyclable text NOT NULL,
-        stream text NOT NULL
-    )
-    """
-    cur.execute(query, [name])
+def dump_guidelines():
+    for name, guidelines in UNIVERSITIES.items():
+        with open(
+            Path(__file__).parents[2] / f'data/external/{name}.pickle',
+             'wb') as f:
+            pickle.dump(guidelines, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def write_metadata(cursor, tbl_name:str, hash:str, reyclable:str, stream:str):
-    img_addition = "INSERT INTO ? (hash, recyclable, stream) VALUES (?, ?, ?)"
-    cursor.execute(img_addition, (tbl_name, hash, recyclable, stream))
-    write_master = "INSERT INTO img_master (hash, primary_type) VALUES (?, ?)"
-    cursor.execute(write_master, (hash, stream))
-
-        
-@click.command()        
-@click.option('--db_name')
-def db_init(cur, db_name):
-    create_master_table(cur)
-    create_guideline_table(cur, db_name)
-
-
-@click.command()
-@click.option(
-    '--db_path', 
-    default=Path(__file__).parents[2] / 'data/interim/metadata.sqlite3'
-    )
-@click.option('--first_run', is_flag=True)
-@click.option('--dict_name')
-def create_schema(db_path, first_run, dict_name):
-    cur = get_cursor(db_path)
-    for key, val in guideline_dict.items():
-
+if __name__ == '__main__':
+    dump_guidelines()
