@@ -93,7 +93,7 @@ def pre_prediction(img:Image, model_name:Path):
     clf = load_model(model_name)
     x = image.img_to_array(img)
     x = np.expand_dims(x, axis=0)
-    valid = clf.predict(x)
+    valid = clf.predict_classes(x)
     return valid
 
 

@@ -6,8 +6,10 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 from src.data.scraper import *
 
-wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
-
+try:
+    wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
+except NotADirectoryError:
+    wd = webdriver.Chrome("/home/dal/chromedriver")
 
 def test_fetch_image_urls():
     result = fetch_image_urls("jaberwocky", 5, wd=wd)
@@ -31,7 +33,7 @@ def test_pre_prediction_positive():
     true_result = pre_prediction(
         prediction_img, Path(__file__).parents[2] / "models/2019-08-28 08:03:49.h5"
     )
-    assert true_result.argmax(axis=1) == 1
+    assert true_result == 1
 
 
 def test_pre_prediction_negative():
@@ -42,4 +44,4 @@ def test_pre_prediction_negative():
     true_result = pre_prediction(
         prediction_img, Path(__file__).parents[2] / "models/2019-08-28 08:03:49.h5"
     )
-    assert true_result == False
+    assert true_result == 0
