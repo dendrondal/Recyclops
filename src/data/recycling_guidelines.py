@@ -16,6 +16,7 @@ RECYCLEABLE_UTK_GUIDELINES = {
         "spiral bound notebooks",
         "phone books",
         "catalogs",
+        "poster board"
         "file folders",
     ],
     "cans": ["aluminum beverage can", "tin can", "soup can", "pet food can"],
@@ -24,12 +25,6 @@ RECYCLEABLE_UTK_GUIDELINES = {
         "clean plastic cup",
         "clean milk jug",
         "clean plastic detergent container",
-    ],
-    "cardboard": [
-        "corrugated cardboard",
-        "shipping boxes",
-        "paper board",
-        "cereal boxes",
     ],
 }
 

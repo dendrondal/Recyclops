@@ -90,6 +90,9 @@ def tensorboard():
     )
 
 
+def clf_factory(model_path:Path):
+    pass
+
 if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     model = load_base_model(-10)
@@ -111,3 +114,5 @@ if __name__ == "__main__":
             tensorboard(),
         ],
     )
+
+
