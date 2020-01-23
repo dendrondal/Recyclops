@@ -7,14 +7,16 @@ import hashlib
 import time
 import requests
 import io
-from typing import List
+from typing import List, Dict
 import os
 from pathlib import Path
-#from tensorflow.keras.models import load_model
+
+# from tensorflow.keras.models import load_model
 import numpy as np
 import pickle
 from threading import Thread
 import logging
+
 
 def fetch_image_urls(
     query: str,
@@ -74,7 +76,7 @@ def fetch_image_urls(
     return list(image_urls)
 
 
-def hash_urls(img_urls:List[str]):
+def hash_urls(img_urls: List[str]):
     hashed_urls = dict()
     for url in img_urls:
         key = str(abs(hash(url)) % (10 ** 10))
@@ -83,17 +85,16 @@ def hash_urls(img_urls:List[str]):
     return hashed_urls
 
 
-def resize_img(img:Image):
+def resize_img(img: Image):
     basewidth = 300
     if img.size[0] <= basewidth:
         return img
     else:
-        wpercent = (basewidth/float(img.size[0]))
-        hsize = int((float(img.size[1])*float(wpercent)))
+        wpercent = basewidth / float(img.size[0])
+        hsize = int((float(img.size[1]) * float(wpercent)))
         img = img.resize((basewidth, hsize), Image.ANTIALIAS)
         return img
 
-from tensorflow.keras.preprocessing import image
 
 def pre_prediction(img: Image, model_name: Path):
     """Function to help validation during curation process.
@@ -106,14 +107,18 @@ def pre_prediction(img: Image, model_name: Path):
     return valid
 
 
-def dict_chunker(result_dict, n:int) -> List[List[str]]:
+def dict_chunker(result_dict:Dict[List[str]], n: int) -> List[List[str]]:
     flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
-    keys = [flat_keys[i:i+n] for i in range(0, len(flat_keys), n)]
-    vals = [flat_vals[i:i+n] for i in range(0, len(flat_vals), n)]
+    keys = [flat_keys[i : i + n] for i in range(0, len(flat_keys), n)]
+    vals = [flat_vals[i : i + n] for i in range(0, len(flat_vals), n)]
     return (keys, vals)
 
 
-def download_image(folder_path:str, names:str, urls:str):
+def trim_dict(loaded_dict:Dict[Dict[List[str]]], interuption_word:str):
+    """Finds first instance of keyword within dictionary of lists"""
+    for value in result 
+
+def download_image(folder_path: str, names: str, urls: str):
     for name, url in zip(names, urls):
         try:
             image_content = requests.get(url).content
@@ -147,28 +152,32 @@ def create_master_table(cursor):
     )
     
     """
-    
+
     cursor.execute(query)
 
 
-def create_guideline_table(cursor, name:str):
+def create_guideline_table(cursor, name: str):
     query = """
     CREATE TABLE IF NOT EXISTS {} (
         hash text PRIMARY KEY,
         recyclable text NOT NULL,
         stream text NOT NULL
     )
-    """.format(name)
+    """.format(
+        name
+    )
     cursor.execute(query)
 
 
-def write_metadata(cursor, tbl_name:str, hash:str, recyclable:str, stream:str):
-    img_addition = "INSERT INTO {} (hash, recyclable, stream) VALUES (?, ?, ?)".format(tbl_name)
+def write_metadata(cursor, tbl_name: str, hash: str, recyclable: str, stream: str):
+    img_addition = "INSERT INTO {} (hash, recyclable, stream) VALUES (?, ?, ?)".format(
+        tbl_name
+    )
     cursor.execute(img_addition, (hash, recyclable, stream))
     write_master = "INSERT INTO img_master (hash, primary_type) VALUES (?, ?)"
     cursor.execute(write_master, (hash, stream))
 
-        
+
 def db_init(cur, db_name):
     create_master_table(cur)
     create_guideline_table(cur, db_name)
@@ -178,49 +187,57 @@ def db_init(cur, db_name):
 @click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
 @click.option("--result_count", default=500)
 @click.option("--model", default="2019-08-28 08:03:49.h5")
-@click.option('--first_run', is_flag=True)
-@click.option('--dict_name')
-def main(data_path, result_count, model, first_run, dict_name):
+@click.option("--first_run", is_flag=True)
+@click.option("--dict_name")
+@click.option(
+    "--interrupted_on",
+    help="If scraping is interrupted, this is the item with which it should restart",
+)
+def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
     log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    logdir = Path(data_path).parents[1] / 'reports'
+    logdir = Path(data_path).parents[1] / "reports"
     logging.basicConfig(
-        filename=logdir / 'data.log',
-        level=logging.INFO, 
-        format=log_fmt
-        )
+        filename=logdir / "data.log", level=logging.INFO, format=log_fmt
+    )
     logger = logging.getLogger(__name__)
-    #instantiation and path definitions go here
+    # instantiation and path definitions go here
     db_path = Path(data_path) / "metadata.sqlite3"
-    guideline_path = Path(data_path).parents[0] / 'external'
+    guideline_path = Path(data_path).parents[0] / "external"
     cursor = get_cursor(str(db_path))
 
     if first_run:
         logger.info("Creating new tables...")
         db_init(cursor, dict_name)
-    #getting the recycling guidelines
-    with open(guideline_path / f'{dict_name}.pickle', 'rb') as f:
-        guideline_dict = pickle.load(f) 
-    #main scraping iteration
+    # getting the recycling guidelines
+    with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
+        guideline_dict = pickle.load(f)
+    if interrupted_on:
+        for lst in guideline_dict.values():
+            if 
+    # main scraping iteration
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
-            #accounting for discrepancy between Ubuntu 16.04 and 18.04
+            # accounting for discrepancy between Ubuntu 16.04 and 18.04
             try:
                 wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
-                clean_query = query.replace(' ', '_')
-                target_path = Path(data_path) / f'{broad_category}/{clean_query}'
+                clean_query = query.replace(" ", "_")
+                target_path = Path(data_path) / f"{broad_category}/{clean_query}"
                 target_path.mkdir(parents=False, exist_ok=True)
-                logger.info(f'Starting scraping for {query}')
+                logger.info(f"Starting scraping for {query}")
                 google_img_result = fetch_image_urls(query, int(result_count), wd)
-                logger.info('Image URLs obtained! Hashing URLs...')
+                logger.info("Image URLs obtained! Hashing URLs...")
                 hashed_results = hash_urls(google_img_result)
-                logger.info('Saving images and metadata...')
+                logger.info("Saving images and metadata...")
                 chunks = dict_chunker(hashed_results, 5)
                 for names, urls in zip(chunks[0], chunks[1]):
-                    Thread(target=download_image, args=(target_path, names, urls)).start()
-                logger.info(f'Finished saving images for {query}')
+                    Thread(
+                        target=download_image, args=(target_path, names, urls)
+                    ).start()
+                logger.info(f"Finished saving images for {query}")
+
 
 if __name__ == "__main__":
     main()
