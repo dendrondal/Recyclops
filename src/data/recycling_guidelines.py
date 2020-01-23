@@ -62,8 +62,7 @@ TRASH_UTK_GUIDELINES = {
 
 
 UNIVERSITIES = {"UTK": {"R": RECYCLEABLE_UTK_GUIDELINES, "O": TRASH_UTK_GUIDELINES}}
-
-
+  
 
 def dump_guidelines():
     for name, guidelines in UNIVERSITIES.items():

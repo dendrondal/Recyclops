@@ -107,16 +107,12 @@ def pre_prediction(img: Image, model_name: Path):
     return valid
 
 
-def dict_chunker(result_dict:Dict[List[str]], n: int) -> List[List[str]]:
+def dict_chunker(result_dict:Dict[str, List[str]], n: int) -> List[List[str]]:
     flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
     keys = [flat_keys[i : i + n] for i in range(0, len(flat_keys), n)]
     vals = [flat_vals[i : i + n] for i in range(0, len(flat_vals), n)]
     return (keys, vals)
 
-
-def trim_dict(loaded_dict:Dict[Dict[List[str]]], interuption_word:str):
-    """Finds first instance of keyword within dictionary of lists"""
-    for value in result 
 
 def download_image(folder_path: str, names: str, urls: str):
     for name, url in zip(names, urls):
@@ -191,7 +187,7 @@ def db_init(cur, db_name):
 @click.option("--dict_name")
 @click.option(
     "--interrupted_on",
-    help="If scraping is interrupted, this is the item with which it should restart",
+    help="If scraping is interrupted, this is the last item it scraped",
 )
 def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
     log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -211,9 +207,7 @@ def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
     # getting the recycling guidelines
     with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
         guideline_dict = pickle.load(f)
-    if interrupted_on:
-        for lst in guideline_dict.values():
-            if 
+
     # main scraping iteration
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
@@ -223,20 +217,27 @@ def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
-                clean_query = query.replace(" ", "_")
-                target_path = Path(data_path) / f"{broad_category}/{clean_query}"
-                target_path.mkdir(parents=False, exist_ok=True)
-                logger.info(f"Starting scraping for {query}")
-                google_img_result = fetch_image_urls(query, int(result_count), wd)
-                logger.info("Image URLs obtained! Hashing URLs...")
-                hashed_results = hash_urls(google_img_result)
-                logger.info("Saving images and metadata...")
-                chunks = dict_chunker(hashed_results, 5)
-                for names, urls in zip(chunks[0], chunks[1]):
-                    Thread(
-                        target=download_image, args=(target_path, names, urls)
-                    ).start()
-                logger.info(f"Finished saving images for {query}")
+                #search for value that was stopped at
+                if interrupted_on and query != interrupted_on:
+                    pass
+                elif interrupted_on and query == interrupted_on:
+                    interrupted_on = False
+                    pass
+                else:    
+                    clean_query = query.replace(" ", "_")
+                    target_path = Path(data_path) / f"{broad_category}/{clean_query}"
+                    target_path.mkdir(parents=False, exist_ok=True)
+                    logger.info(f"Starting scraping for {query}")
+                    google_img_result = fetch_image_urls(query, int(result_count), wd)
+                    logger.info("Image URLs obtained! Hashing URLs...")
+                    hashed_results = hash_urls(google_img_result)
+                    logger.info("Saving images and metadata...")
+                    chunks = dict_chunker(hashed_results, 5)
+                    for names, urls in zip(chunks[0], chunks[1]):
+                        Thread(
+                            target=download_image, args=(target_path, names, urls)
+                        ).start()
+                    logger.info(f"Finished saving images for {query}")
 
 
 if __name__ == "__main__":
