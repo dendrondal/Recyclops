@@ -1,17 +1,13 @@
 import click
 from selenium import webdriver
 from PIL import Image
-import sqlite3
-import pandas as pd
 import hashlib
 import time
 import requests
 import io
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import os
 from pathlib import Path
-
-# from tensorflow.keras.models import load_model
 import numpy as np
 import pickle
 from threading import Thread
@@ -97,9 +93,13 @@ def resize_img(img: Image):
 
 
 def pre_prediction(img: Image, model_name: Path):
-    """Function to help validation during curation process.
+    """
+    NOT IMPLEMENTED YET
+
+    Function to help validation during curation process.
     Theoretically, first CNN should label all images as 
-    recycleable"""
+    recycleable
+    """
     clf = load_model(model_name)
     x = image.img_to_array(img)
     x = np.expand_dims(x, axis=0)
@@ -134,81 +134,37 @@ def download_image(folder_path: str, names: str, urls: str):
             print(f"ERROR - Could not save {url} - {e}")
 
 
-def get_cursor(db_path: str):
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    return cur
+def multithreaded_save(chunks:Tuple[List[List[str]], List[List[str]]], target_path:Path):
+    """Takes a chunked dictionary and saves it in a mulithreaded manner."""
+    for names, urls in zip(chunks[0], chunks[1]):
+        Thread(
+            target=download_image, args=(target_path, names, urls)
+        ).start()
 
 
-def create_master_table(cursor):
-    query = """
-    CREATE TABLE IF NOT EXISTS img_master (
-        hash text PRIMARY KEY,
-        primary_type text NOT NULL
-    )
-    
-    """
-
-    cursor.execute(query)
-
-
-def create_guideline_table(cursor, name: str):
-    query = """
-    CREATE TABLE IF NOT EXISTS {} (
-        hash text PRIMARY KEY,
-        recyclable text NOT NULL,
-        stream text NOT NULL
-    )
-    """.format(
-        name
-    )
-    cursor.execute(query)
-
-
-def write_metadata(cursor, tbl_name: str, hash: str, recyclable: str, stream: str):
-    img_addition = "INSERT INTO {} (hash, recyclable, stream) VALUES (?, ?, ?)".format(
-        tbl_name
-    )
-    cursor.execute(img_addition, (hash, recyclable, stream))
-    write_master = "INSERT INTO img_master (hash, primary_type) VALUES (?, ?)"
-    cursor.execute(write_master, (hash, stream))
-
-
-def db_init(cur, db_name):
-    create_master_table(cur)
-    create_guideline_table(cur, db_name)
-
-
-@click.command()
-@click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
-@click.option("--result_count", default=500)
-@click.option("--model", default="2019-08-28 08:03:49.h5")
-@click.option("--first_run", is_flag=True)
-@click.option("--dict_name")
+@cli.command()
+@click.option("--dict_name", prompt=True)
 @click.option(
     "--interrupted_on",
-    help="If scraping is interrupted, this is the last item it scraped",
+    help="If scrape_multiple is interrupted, this is the last item it scraped",
+    prompt=True
 )
-def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
-    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    logdir = Path(data_path).parents[1] / "reports"
-    logging.basicConfig(
-        filename=logdir / "data.log", level=logging.INFO, format=log_fmt
-    )
-    logger = logging.getLogger(__name__)
-    # instantiation and path definitions go here
-    db_path = Path(data_path) / "metadata.sqlite3"
-    guideline_path = Path(data_path).parents[0] / "external"
-    cursor = get_cursor(str(db_path))
-
-    if first_run:
-        logger.info("Creating new tables...")
-        db_init(cursor, dict_name)
+def scrape_multiple(
+    dict_name,
+    data_path: Path,
+    result_count: int,
+    logfile,
+    interrupted_on=None
+):
+    """
+    Main scraping function that iterates through dict of university guidelines, scraping each google
+    images for each individual item, hasing them, and then saving them.
+    """
     # getting the recycling guidelines
+    guideline_path = data_path.parents[0] / "external"
     with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
         guideline_dict = pickle.load(f)
 
-    # main scraping iteration
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
             # accounting for discrepancy between Ubuntu 16.04 and 18.04
@@ -216,6 +172,7 @@ def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
                 wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
+
             for query in queries:
                 #search for value that was stopped at
                 if interrupted_on and query != interrupted_on:
@@ -225,7 +182,7 @@ def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
                     pass
                 else:    
                     clean_query = query.replace(" ", "_")
-                    target_path = Path(data_path) / f"{broad_category}/{clean_query}"
+                    target_path = data_path / f"{broad_category}/{clean_query}"
                     target_path.mkdir(parents=False, exist_ok=True)
                     logger.info(f"Starting scraping for {query}")
                     google_img_result = fetch_image_urls(query, int(result_count), wd)
@@ -233,12 +190,69 @@ def main(data_path, result_count, model, first_run, dict_name, interrupted_on):
                     hashed_results = hash_urls(google_img_result)
                     logger.info("Saving images and metadata...")
                     chunks = dict_chunker(hashed_results, 5)
-                    for names, urls in zip(chunks[0], chunks[1]):
-                        Thread(
-                            target=download_image, args=(target_path, names, urls)
-                        ).start()
+                    multithreaded_save(chunks, target_path)
                     logger.info(f"Finished saving images for {query}")
 
 
+
+@cli.command()
+@click.option("--query", prompt=True)
+@click.option("--metadata", type=(str, str), prompt=True)
+def scrape_single(data_path, result_count, query, metadata):
+    """
+    Scrapes single class of item. broad_category can be 'R' for recyclable or 'O'
+    for not. Example is a piece of paper:
+    
+    query = 'piece of paper'
+    broad_category = 'R'*,
+    primary_category = 'paper'
+
+    *Note that this will vary by university. This will be addressed post-scraping by the creation
+    of a database with university recycling guidelines
+    """
+    broad_category, primary_category, = metadata
+    valid_categories = ['O', 'R']
+    if broad_category not in valid_categories:
+        raise ValueError(f"broad_category must be one of {valid_categories} with R for recyclable")
+
+    # accounting for discrepancy between Ubuntu 16.04 and 18.04
+    try:
+        wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
+    except NotADirectoryError:
+        wd = webdriver.Chrome("/home/dal/chromedriver")
+
+    clean_query = query.replace(" ", "_")
+    target_data = data_path / f"{broad_category}/{clean_query}"
+    target_path.mkdir(parents=False, exist_ok=True)
+    google_img_result = fetch_image_urls(query, int(result_count), wd)
+    hashed_results = hash_urls(google_img_result)
+    chunks = dict_chunker(hashed_results, 5)
+    multithreaded_save(chunks, target_path)
+
+
+@click.group()
+@click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
+@click.option("--result_count", default=500)
+@click.option("--model", default="2019-08-28 08:03:49.h5")
+@click.option("--single/--multi")
+@click.pass_context
+def cli(data_path, result_count, model, single):
+    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logdir = Path(data_path).parents[1] / "reports"
+    logging.basicConfig(
+        filename=logdir / "data.log", level=logging.INFO, format=log_fmt
+    )
+    logger = logging.getLogger(__name__)
+    # instantiation and path definitions go here
+    data_path = Path(data_path)
+    
+    # main scraping iteration
+    if single:
+        print('got here')
+        scrape_single()
+    elif multi:
+        scrape_multiple(logfile=logger)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

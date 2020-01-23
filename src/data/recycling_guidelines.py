@@ -46,7 +46,7 @@ TRASH_UTK_GUIDELINES = {
         "dirty plasticware",
         "plastic bottle with liquid",
         "plastic bag",
-        "film",
+        "camera film",
         "plastic straws",
         "glass jars",
         "glass bottles",
