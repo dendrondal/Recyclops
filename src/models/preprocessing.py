@@ -4,7 +4,8 @@ import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
 
-def train_val_split(test_size:float=0.2, university:str):
+
+def train_val_split(university:str, test_size:float=0.2):
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
     conn = sqlite3.connect(data_dir/'metadata.sqlite3')
     cur = conn.cursor()
@@ -17,7 +18,9 @@ def train_val_split(test_size:float=0.2, university:str):
         END
     FROM {}
     """.format(university)
-    imgs, labels = *cur.execute(query)
+    imgs, labels = [], []
+    for img, label in cur.execute(query):
+        imgs.append(img), labels.append(label)
     return train_test_split(imgs, labels, test_size=test_size, random_state=42)
 
 
@@ -68,6 +71,9 @@ def create_dataset(ds, cache=True, shuffle_buffer_size=1024):
   # This is a small dataset, only load it once, and keep it in memory.
   # use `.cache(filename)` to cache preprocessing work for datasets that don't
   # fit in memory.
+
+  ds = labeled_ds()
+
   if cache:
     if isinstance(cache, str):
       ds = ds.cache(cache)
