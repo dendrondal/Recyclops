@@ -1,7 +1,7 @@
 from sklearn.metrics import confusion_matrix
 from pathlib import Path
 from tensorflow.keras.models import load_model
-from src.models.predict_model import validation_generator
+from src.models.train_model import validation_generator
 from typing import Union
 import sqlite3
 
