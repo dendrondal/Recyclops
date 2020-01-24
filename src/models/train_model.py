@@ -11,7 +11,7 @@ from pathlib import Path
 import click
 
 
-def load_base_model(depth: int):
+def load_base_model(depth: int, n_labels:int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
     desired depth from being trained."""
     base_model = MobileNetV2(include_top=False)
@@ -19,7 +19,7 @@ def load_base_model(depth: int):
         layer.trainable = False
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    predictions = Dense(1, activation="sigmoid")(x)
+    predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
 
@@ -142,20 +142,25 @@ def macro_f1(y, y_hat, thresh=0.5):
 
 if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
+    UNI = 'UTK'
+    X_train, X_val, y_train, y_val = train_val_split('UTK')
+    y_train_bin, y_val_bin = label_encoding(y_train, y_val)
+    train_ds = create_dataset(X_train, y_train_bin)
+    val_ds = create_dataset(X_val, y_val_bin)
+
     model = load_base_model(-10)
     optimizer = adam(1e-5)
-    model.compile(optimizer="rmsprop", loss="macro_soft_f1", metrics=["macro_f1"])
+    model.compile(optimizer="rmsprop", loss="binary_crossentropy", metrics=["macro_f1"])
+
     model.fit(
-        train_generator(project_dir / "data" / "raw" / "DATASET" / "TRAIN"),
+        train_ds,
         steps_per_epoch=256,
         epochs=300,
-        validation_data=validation_generator(
-            project_dir / "data" / "raw" / "DATASET" / "TEST"
-        ),
+        validation_data=create_dataset(X_val, y_val_bin),
         validation_steps=64,
         callbacks=[
             checkpoint(
-                (project_dir / "models" / str(datetime.now())).with_suffix(".h5")
+                (project_dir / "models" / "UTK.h5")
             ),
             early(),
             tensorboard(),
