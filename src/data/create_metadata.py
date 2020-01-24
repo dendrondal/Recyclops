@@ -8,7 +8,6 @@ import click
 @click.option('--table_name')
 def create_metadata(table_name):
     project_dir = Path(__file__).resolve().parents[2]
-    print(project_dir)
     data_path = project_dir / 'data' / 'interim'
     db_path = data_path / 'metadata.sqlite3'
     guideline_path = project_dir / 'data/external' / f'{table_name}.pickle'
@@ -34,7 +33,8 @@ def create_metadata(table_name):
                     INSERT INTO {} (hash, recyclable, stream, subclass) VALUES (?, ?, ?, ?)
                     """.format(table_name) 
                     try:
-                        cur.execute(query, (str(img.name), key, stream, subclass))
+                        cur.execute(query,
+                         (str(data_path / img), key, stream, subclass))
                     except sqlite3.IntegrityError:
                         pass
     conn.commit()
