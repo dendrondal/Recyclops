@@ -912,8 +912,8 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools"]
 
 [metadata]
-content-hash = "d96ff5c61883bbfe4fc4749d645031ac919e2ca365fb2d19c6b6c631dd0b98b9"
-python-versions = "^3.7"
+content-hash = "9d4ba60a5e40b48475cc86c0c0e47d65166d5985218ed2f99155ac17bfd5e408"
+python-versions = "^3.6"
 
 [metadata.files]
 absl-py = [
