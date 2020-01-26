@@ -6,9 +6,97 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePoolin
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
-from src.data.preprocessing import create_dataset, labeled_ds, train_val_split, label_encoding
 from pathlib import Path
-import click
+import sqlite3
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.model_selection import train_test_split
+
+ 
+def train_val_split(university:str, test_size:float=0.2):
+    data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
+    print(data_dir)
+    conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
+    cur = conn.cursor()
+    query = """
+    SELECT
+        hash,
+        CASE
+            WHEN(recyclable = 'O') THEN 'trash'
+            WHEN(recyclable = 'R') THEN 'stream'
+        END
+    FROM {}
+    """.format(university)
+    imgs, labels = [], []
+    for img, label in cur.execute(query):
+        imgs.append(img), labels.append(label)
+    return train_test_split(imgs, labels, test_size=test_size, random_state=42)
+
+
+def label_encoding(y_train, y_val):
+    mlb = MultiLabelBinarizer()
+    mlb.fit(y_train)
+    return mlb.transform(y_train), mlb.transform(y_val)
+
+
+def datagen():
+    data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
+
+    conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
+    cur = conn.cursor()
+    query = """
+    SELECT
+        hash,
+        CASE
+            WHEN(recyclable = 'O') THEN 'trash'
+            WHEN(recyclable = 'R') THEN 'stream'
+        END
+    FROM UTK
+    """
+    for row in cur.execute(query):
+        yield row
+
+
+def process_path(file_path, label):
+    img = tf.io.read_file(file_path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    img = img / 255.0
+    return tf.image.resize(img, [224, 224])
+
+
+def labeled_ds():
+    list_ds = tf.data.Dataset.from_generator(
+        datagen, (tf.string, tf.string)
+    )
+    print(list_ds.take(1))
+    return list_ds.map(process_path)
+
+
+def create_dataset(ds, cache=True, shuffle_buffer_size=1024):
+  # This is a small dataset, only load it once, and keep it in memory.
+  # use `.cache(filename)` to cache preprocessing work for datasets that don't
+  # fit in memory.
+
+  ds = labeled_ds()
+
+  if cache.any():
+    if isinstance(cache, str):
+      ds = ds.cache(cache)
+    else:
+      ds = ds.cache()
+
+  ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+
+  # Repeat forever
+  ds = ds.repeat()
+
+  ds = ds.batch(256)
+
+  # `prefetch` lets the dataset fetch batches in the background while the model
+  # is training.
+  ds = ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
+  return ds
 
 
 def load_base_model(depth: int, n_labels:int):
@@ -24,33 +112,6 @@ def load_base_model(depth: int, n_labels:int):
     return model
 
 
-def rmsprop(lr: float, decay: float):
-    return RMSprop(lr=lr, decay=decay)
-
-
-def adam(lr: float):
-    return Adam(lr=lr)
-
-
-def train_generator(training_data_directory):
-    train_datagen = ImageDataGenerator(
-        rescale=1.0 / 255,
-        horizontal_flip=True,
-        fill_mode="nearest",
-        zoom_range=0.3,
-        width_shift_range=0.3,
-        height_shift_range=0.3,
-        rotation_range=30,
-    )
-    return train_datagen.flow_from_directory(
-        training_data_directory,
-        target_size=(224, 224),
-        batch_size=32,
-        class_mode="binary",
-    )
-
-
-def validation_generator(validation_data_directory):
     test_datagen = ImageDataGenerator(
         rescale=1.0 / 255,
         horizontal_flip=True,
@@ -77,7 +138,8 @@ def checkpoint(filename):
         save_weights_only=False,
         mode="auto",
         period=1,
-    )
+    )   
+    
 
 
 def early():
@@ -90,10 +152,6 @@ def tensorboard():
     return TensorBoard(
         log_dir="../../reports", histogram_freq=0, write_graph=True, write_images=False
     )
-
-
-def clf_factory(model_path:Path):
-    pass
 
 
 @tf.function
@@ -148,9 +206,13 @@ if __name__ == "__main__":
     train_ds = create_dataset(X_train, y_train_bin)
     val_ds = create_dataset(X_val, y_val_bin)
 
-    model = load_base_model(-10)
-    optimizer = adam(1e-5)
-    model.compile(optimizer="rmsprop", loss="binary_crossentropy", metrics=["macro_f1"])
+    model = load_base_model(-10, len(y_train_bin))
+    optimizer = Adam(1e-5)
+    model.compile(
+        optimizer="adam", 
+        loss="binary_crossentropy",
+        metrics=[tf.metrics.AUC()]
+         )
 
     model.fit(
         train_ds,

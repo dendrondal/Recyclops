@@ -161,9 +161,12 @@ def scrape_multiple(
     images for each individual item, hasing them, and then saving them.
     """
     # getting the recycling guidelines
-    guideline_path = data_path.parents[0] / "external"
-    with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
-        guideline_dict = pickle.load(f)
+    guideline_path =from tensorflow.python.client import device_lib
+ data_path.parents[0] / "external"
+    with open(guidelfrom tensorflow.python.client import device_lib
+ine_path / f"{dict_name}.pickle", "rb") as f:
+        guideline_difrom tensorflow.python.client import device_lib
+ct = pickle.load(f)
 
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
@@ -173,10 +176,14 @@ def scrape_multiple(
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
 
-            for query in queries:
-                #search for value that was stopped at
-                if interrupted_on and query != interrupted_on:
-                    pass
+            forfrom tensorflow.python.client import device_lib
+ query in queries:
+               from tensorflow.python.client import device_lib
+ #search for value that was stopped at
+               from tensorflow.python.client import device_lib
+ if interrupted_on and query != interrupted_on:
+               from tensorflow.python.client import device_lib
+     pass
                 elif interrupted_on and query == interrupted_on:
                     interrupted_on = False
                     pass
