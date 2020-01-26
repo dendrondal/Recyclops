@@ -8,6 +8,8 @@ from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import sqlite3
+import numpy as np
+import random
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
 
@@ -22,7 +24,7 @@ def train_val_split(university:str, test_size:float=0.2):
         hash,
         CASE
             WHEN(recyclable = 'O') THEN 'trash'
-            WHEN(recyclable = 'R') THEN 'stream'
+            WHEN(recyclable = 'R') THEN stream
         END
     FROM {}
     """.format(university)
@@ -31,10 +33,9 @@ def train_val_split(university:str, test_size:float=0.2):
         imgs.append(img), labels.append(label)
     return train_test_split(imgs, labels, test_size=test_size, random_state=42)
 
-
 def label_encoding(y_train, y_val):
     mlb = MultiLabelBinarizer()
-    mlb.fit(y_train)
+    mlb.fit([y_train])
     return mlb.transform(y_train), mlb.transform(y_val)
 
 
@@ -48,7 +49,7 @@ def datagen():
         hash,
         CASE
             WHEN(recyclable = 'O') THEN 'trash'
-            WHEN(recyclable = 'R') THEN 'stream'
+            WHEN(recyclable = 'R') THEN stream
         END
     FROM UTK
     """
@@ -56,7 +57,9 @@ def datagen():
         yield row
 
 
-def process_path(file_path, label):
+def process_path(datum):
+    print(datum)
+    file_path, label = datum
     img = tf.io.read_file(file_path)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.convert_image_dtype(img, tf.float32)
@@ -65,11 +68,10 @@ def process_path(file_path, label):
 
 
 def labeled_ds():
-    list_ds = tf.data.Dataset.from_generator(
-        datagen, (tf.string, tf.string)
-    )
-    print(list_ds.take(1))
-    return list_ds.map(process_path)
+    list_ds = [i for i in datagen()]
+    random.shuffle(list_ds)
+    for datum in list_ds:
+        yield process_path(datum)
 
 
 def create_dataset(ds, cache=True, shuffle_buffer_size=1024):
@@ -110,23 +112,6 @@ def load_base_model(depth: int, n_labels:int):
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
-
-
-    test_datagen = ImageDataGenerator(
-        rescale=1.0 / 255,
-        horizontal_flip=True,
-        fill_mode="nearest",
-        zoom_range=0.3,
-        width_shift_range=0.3,
-        height_shift_range=0.3,
-        rotation_range=30,
-    )
-    return test_datagen.flow_from_directory(
-        validation_data_directory,
-        target_size=(224, 224),
-        batch_size=32,
-        class_mode="binary",
-    )
 
 
 def checkpoint(filename):
@@ -215,7 +200,7 @@ if __name__ == "__main__":
          )
 
     model.fit(
-        train_ds,
+        labeled_ds,
         steps_per_epoch=256,
         epochs=300,
         validation_data=create_dataset(X_val, y_val_bin),
