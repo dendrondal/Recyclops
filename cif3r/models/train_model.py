@@ -10,13 +10,13 @@ from pathlib import Path
 import sqlite3
 import numpy as np
 import random
+import pandas as pd
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
 
  
 def train_val_split(university:str, test_size:float=0.2):
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
-    print(data_dir)
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
     cur = conn.cursor()
     query = """
@@ -39,22 +39,19 @@ def label_encoding(y_train, y_val):
     return mlb.transform(y_train), mlb.transform(y_val)
 
 
-def datagen():
+def datagen(university:str):
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
-
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
-    cur = conn.cursor()
     query = """
-    SELECT
-        hash,
-        CASE
-            WHEN(recyclable = 'O') THEN 'trash'
-            WHEN(recyclable = 'R') THEN stream
-        END
-    FROM UTK
-    """
-    for row in cur.execute(query):
-        yield row
+    SELECT hash, 
+    CASE WHEN(recyclable = 'O') THEN 'trash' 
+    WHEN(recyclable = 'R') THEN stream 
+    END FROM {}
+    """.format(university)
+
+    df = pd.read_sql(sql=query, con=conn)
+    df.columns = ['filename', 'class']
+    return df
 
 
 def process_path(file_paths):
@@ -169,7 +166,7 @@ if __name__ == "__main__":
     y_train_bin, y_val_bin = label_encoding(y_train, y_val)
     val_ds = create_dataset(X_val, y_val_bin)
 
-    model = load_base_model(-10, len(y_train_bin))
+    model = load_base_model(-10, len(y_train_bin[0]))
     optimizer = Adam(1e-5)
     model.compile(
         optimizer="adam", 
@@ -177,13 +174,13 @@ if __name__ == "__main__":
         metrics=[tf.metrics.AUC()]
          )
 
+    df = datagen(UNI)
+    print(df.columns)
+
     model.fit(
-        x = [X for X in process_path(X_train)],
-        y = y_train_bin,
+        ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=64),
         steps_per_epoch=256,
         epochs=300,
-        validation_data=([X for X in process_path(X_val)], y_val_bin),
-        validation_steps=64,
         callbacks=[
             checkpoint(
                 (project_dir / "models" / "UTK.h5")
