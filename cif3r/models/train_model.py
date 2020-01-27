@@ -57,13 +57,13 @@ def datagen():
         yield row
 
 
-def process_path(datum):
-    file_path, label = datum
-    img = tf.io.read_file(file_path)
-    img = tf.image.decode_jpeg(img, channels=3)
-    img = tf.image.convert_image_dtype(img, tf.float32)
-    img = img / 255.0
-    return tf.image.resize(img, [224, 224])
+def process_path(file_paths):
+    for file_path in file_paths:
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.image.convert_image_dtype(img, tf.float32)
+        img = img / 255.0
+        yield tf.image.resize(img, [224, 224])
 
 
 def labeled_ds():
@@ -79,7 +79,7 @@ def create_dataset(Xs, ys):
   # fit in memory.
     return [X for X in Xs], [y for y in ys]
 
-    
+
 def load_base_model(depth: int, n_labels:int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
     desired depth from being trained."""
@@ -178,10 +178,11 @@ if __name__ == "__main__":
          )
 
     model.fit(
-        labeled_ds,
+        x = [X for X in process_path(X_train)],
+        y = y_train_bin,
         steps_per_epoch=256,
         epochs=300,
-        validation_data=create_dataset(X_val, y_val_bin),
+        validation_data=([X for X in process_path(X_val)], y_val_bin),
         validation_steps=64,
         callbacks=[
             checkpoint(
