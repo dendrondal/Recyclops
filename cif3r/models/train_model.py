@@ -93,7 +93,7 @@ def load_base_model(depth: int, n_labels:int):
 def checkpoint(filename):
     return ModelCheckpoint(
         str(filename),
-        monitor="val_acc",
+        monitor="auc",
         verbose=1,
         save_best_only=True,
         save_weights_only=False,
@@ -105,13 +105,13 @@ def checkpoint(filename):
 
 def early():
     return EarlyStopping(
-        monitor="val_accuracy", min_delta=0, patience=10, verbose=1, mode="auto"
+        monitor="auc", min_delta=0, patience=10, verbose=1, mode="auto"
     )
 
 
 def tensorboard():
     return TensorBoard(
-        log_dir="../../reports", histogram_freq=0, write_graph=True, write_images=False
+        log_dir=Path(__file__).resolve().parents[2] / 'reports', histogram_freq=0, write_graph=True, write_images=False
     )
 
 
@@ -178,8 +178,8 @@ if __name__ == "__main__":
     print(df.columns)
 
     model.fit(
-        ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=64),
-        steps_per_epoch=256,
+        ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=256),
+        steps_per_epoch=64,
         epochs=300,
         callbacks=[
             checkpoint(
