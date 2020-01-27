@@ -58,7 +58,6 @@ def datagen():
 
 
 def process_path(datum):
-    print(datum)
     file_path, label = datum
     img = tf.io.read_file(file_path)
     img = tf.image.decode_jpeg(img, channels=3)
@@ -74,33 +73,13 @@ def labeled_ds():
         yield process_path(datum)
 
 
-def create_dataset(ds, cache=True, shuffle_buffer_size=1024):
+def create_dataset(Xs, ys):
   # This is a small dataset, only load it once, and keep it in memory.
   # use `.cache(filename)` to cache preprocessing work for datasets that don't
   # fit in memory.
+    return [X for X in Xs], [y for y in ys]
 
-  ds = labeled_ds()
-
-  if cache.any():
-    if isinstance(cache, str):
-      ds = ds.cache(cache)
-    else:
-      ds = ds.cache()
-
-  ds = ds.shuffle(buffer_size=shuffle_buffer_size)
-
-  # Repeat forever
-  ds = ds.repeat()
-
-  ds = ds.batch(256)
-
-  # `prefetch` lets the dataset fetch batches in the background while the model
-  # is training.
-  ds = ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
-  return ds
-
-
+    
 def load_base_model(depth: int, n_labels:int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
     desired depth from being trained."""
@@ -165,8 +144,8 @@ def macro_soft_f1(y, y_hat):
 @tf.function
 def macro_f1(y, y_hat, thresh=0.5):
     """Compute the macro F1-score on a batch of observations (average F1 across labels)
-    
-    Args:
+    key)
+    Args:key)
         y (int32 Tensor): labels array of shape (BATCH_SIZE, N_LABELS)
         y_hat (float32 Tensor): probability matrix from forward propagation of shape (BATCH_SIZE, N_LABELS)
         thresh: probability value above which we predict positive
@@ -188,7 +167,6 @@ if __name__ == "__main__":
     UNI = 'UTK'
     X_train, X_val, y_train, y_val = train_val_split('UTK')
     y_train_bin, y_val_bin = label_encoding(y_train, y_val)
-    train_ds = create_dataset(X_train, y_train_bin)
     val_ds = create_dataset(X_val, y_val_bin)
 
     model = load_base_model(-10, len(y_train_bin))
