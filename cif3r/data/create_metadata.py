@@ -11,7 +11,7 @@ def create_metadata(table_name):
     data_path = project_dir / 'data' / 'interim'
     db_path = data_path / 'metadata.sqlite3'
     guideline_path = project_dir / 'data/external' / f'{table_name}.pickle'
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     init = """CREATE TABLE IF NOT EXISTS {} (
         hash text PRIMARY KEY,
