@@ -43,11 +43,18 @@ def datagen(university:str):
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
     query = """
-    SELECT hash, 
-    CASE WHEN(recyclable = 'O') THEN 'trash' 
-    WHEN(recyclable = 'R') THEN stream 
-    END FROM {}
-    """.format(university)
+    SELECT hash,
+       stream
+    FROM   {}
+    WHERE  recyclable='R'
+    UNION ALL
+    SELECT hash, (CASE WHEN(recyclable = 'O') THEN 'trash' END)
+    FROM   {}
+    WHERE  recyclable = 'O' limit(
+              SELECT count(*)
+              FROM   {}
+              WHERE  recyclable = 'R')
+    """.format(university, university, university)
 
     df = pd.read_sql(sql=query, con=conn)
     df.columns = ['filename', 'class']
@@ -100,8 +107,33 @@ def checkpoint(filename):
         mode="auto",
         period=1,
     )   
-    
 
+def write_model_data(university, model_name, class_mapping_dict):
+    data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
+    conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
+    cur = conn.cursor()
+    init = """CREATE TABLE IF NOT EXITS models (
+        university text PRIMARY KEY,
+        model_name text NOT NULL,
+        prediction_index NOT NULL,
+        prediction_class NOT NULL
+    )
+    """
+    cur.execute(init)
+    conn.commit()
+    insert ="""INSERT INTO models 
+    (university, model_name, prediction_index, prediction_class) 
+    VALUES (?,?,?,?)
+    """
+    cur.execute(insert, 
+    (university, model_name, list(class_mapping_dict.values()),
+     list(class_mapping_dict.keys())
+    ))
+    conn.commit()
+
+
+data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
+conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
 
 def early():
     return EarlyStopping(
@@ -162,30 +194,30 @@ def macro_f1(y, y_hat, thresh=0.5):
 if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = 'UTK'
-    X_train, X_val, y_train, y_val = train_val_split('UTK')
-    y_train_bin, y_val_bin = label_encoding(y_train, y_val)
+
     val_ds = create_dataset(X_val, y_val_bin)
 
     model = load_base_model(-10, len(y_train_bin[0]))
     optimizer = Adam(1e-5)
     model.compile(
-        optimizer="adam", 
+        optimizer=optimizer, 
         loss="binary_crossentropy",
-        metrics=[tf.metrics.AUC()]
+        metrics=[tf.metrics.AUC(), 'accuracy']
          )
 
     df = datagen(UNI)
-    print(df.columns)
-
+    data = ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=256)
     model.fit(
-        ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=256),
+        data,
         steps_per_epoch=64,
         epochs=300,
         callbacks=[
             checkpoint(
-                (project_dir / "models" / "UTK.h5")
+                (project_dir / "models" / f"{UNI}.h5")
             ),
             early(),
             tensorboard(),
         ],
     )
+
+    write_model_data()
