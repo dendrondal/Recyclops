@@ -200,7 +200,7 @@ if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = 'UTK'
 
-    model = load_base_model(-10, 4)
+    model = load_base_model(-3, 4)
     optimizer = Adam(1e-5)
     model.compile(
         optimizer=optimizer, 
@@ -223,4 +223,4 @@ if __name__ == "__main__":
         ],
     )
 
-    write_model_data()
+    write_model_data(UNI, project_dir / "models" / f"{UNI}.h5", data.class_indices)
