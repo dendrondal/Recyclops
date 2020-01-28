@@ -63,7 +63,10 @@ def datagen(university:str):
     all_dfs = [df1, df2]
     for df in all_dfs:
         df.columns = ['filename', 'class']
-    return pd.concat(all_dfs).reset_index(drop=True)
+    master_df = pd.concat(all_dfs).reset_index(drop=True)
+    class_balances = master_df.groupby(['class']).nunique()['filename']
+    print(f'Full data:/n {class_balances}')
+    return master_df
 
 
 def process_path(file_paths):
@@ -96,6 +99,7 @@ def load_base_model(depth: int, n_labels:int):
     for layer in base_model.layers[:depth]:
         layer.trainable = False
     x = base_model.output
+    x = Dropout(0.5)(x)
     x = GlobalAveragePooling2D()(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
@@ -153,7 +157,7 @@ def tensorboard():
 
 
 @tf.function
-def macro_soft_f1(y, y_hat):
+def macro_f1_loss(y, y_hat):
     """Compute the macro soft F1-score as a cost (average 1 - soft-F1 across all labels).
     Use probability values instead of binary predictions.
     
@@ -205,11 +209,21 @@ if __name__ == "__main__":
     model.compile(
         optimizer=optimizer, 
         loss="binary_crossentropy",
-        metrics=[tf.metrics.AUC(), 'accuracy']
+        metrics=[tf.metrics.AUC(), macro_f1, 'accuracy']
          )
 
     df = datagen(UNI)
-    data = ImageDataGenerator(validation_split=0.2).flow_from_dataframe(df, batch_size=256)
+    imagegen = ImageDataGenerator(
+        validation_split=0.2,
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest'
+        )
+    data = imagegen.flow_from_dataframe(df, batch_size=256)
     model.fit(
         data,
         steps_per_epoch=64,
