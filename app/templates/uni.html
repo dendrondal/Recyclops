@@ -43,17 +43,11 @@
           <div class="bg-light text-dark card mx-auto">
             <img src="{{ url_for('video_feed') }}">
             <div class="card-body">
+              <div class='container'>
+                {% with messages = get_flashed_messages() %}
+                  {{ message }}
+                {% endwith $}
 
-              <form action="http://daycarefit.com/location" method="GET" role="form">
-                <label class="mt-4" for="uni">Choose your University:</label>
-                <select class="form-control custom-select" name="city" id="city">
-                <optgroup label="Tennessee">
-                  <option selected="" value="UTK">University of Tennessee, Knoxville</option>
-                </optgroup>
-                <optgroup label="Mississippi">
-                  <option value="UM">University of Mississippi</option>
-                </optgroup>
-              </select>
 
 
                 <button type="submit" class="mt-4 mb-1 btn btn-success">Confirm Location</button></form>
