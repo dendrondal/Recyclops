@@ -42,23 +42,28 @@ def label_encoding(y_train, y_val):
 def datagen(university:str):
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
-    query = """
+    q1 = """
     SELECT hash,
        stream
     FROM   {}
     WHERE  recyclable='R'
-    UNION ALL
+    """.format(university)
+    q2 = """
     SELECT hash, (CASE WHEN(recyclable = 'O') THEN 'trash' END)
     FROM   {}
-    WHERE  recyclable = 'O' limit(
+    WHERE  recyclable = 'O'
+    ORDER BY RANDOM() 
+    LIMIT (
               SELECT count(*)
               FROM   {}
               WHERE  recyclable = 'R')
-    """.format(university, university, university)
-
-    df = pd.read_sql(sql=query, con=conn)
-    df.columns = ['filename', 'class']
-    return df
+    """.format(university, university)
+    df1 = pd.read_sql(sql=q1, con=conn)
+    df2 = pd.read_sql(sql=q2, con=conn)
+    all_dfs = [df1, df2]
+    for df in all_dfs:
+        df.columns = ['filename', 'class']
+    return pd.concat(all_dfs).reset_index(drop=True)
 
 
 def process_path(file_paths):
@@ -195,9 +200,7 @@ if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = 'UTK'
 
-    val_ds = create_dataset(X_val, y_val_bin)
-
-    model = load_base_model(-10, len(y_train_bin[0]))
+    model = load_base_model(-10, 4)
     optimizer = Adam(1e-5)
     model.compile(
         optimizer=optimizer, 
