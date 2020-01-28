@@ -13,9 +13,9 @@ def test_train_val_split():
 
 def test_datagen():
     gen = datagen('UTK')
-    print(gen.columns)
     assert gen.columns[1] == 'class'
     assert len(gen) > 0
+    assert len(gen['class'].unique()) == 4
     assert os.path.exists(gen['filename'][0]) == True
 
 
