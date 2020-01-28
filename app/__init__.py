@@ -1,4 +1,4 @@
-from flask import render_template, Response
+from flask import render_template, Response, flash, request
 from .config import app
 from .models import Models
 from cif3r.models import predict_model
@@ -34,8 +34,11 @@ def main():
     return render_template("index.html")
 
 
-@app.route("/<university>")
-def get_university_guidelines(university):
+@app.route("/guidelines")
+def get_university_guidelines():
+    if request.method == 'GET':
+        university = request.args.get('location', 'university')
+        print(university)
     img_array = next(capture())
     flash(predict_model.clf_factory(university, img_array, ['paper', 'cans', 'plastic', 'trash']))
     return render_template('uni.html')
