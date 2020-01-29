@@ -113,7 +113,7 @@ def load_base_model(depth: int, n_labels:int):
 def checkpoint(filename):
     return ModelCheckpoint(
         str(filename),
-        monitor="auc",
+        monitor="macro_f1",
         verbose=1,
         save_best_only=True,
         save_weights_only=False,
@@ -153,7 +153,7 @@ conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
 
 def early():
     return EarlyStopping(
-        monitor="auc", min_delta=0, patience=10, verbose=1, mode="auto"
+        monitor="macro_f1", min_delta=0, patience=10, verbose=1, mode="auto"
     )
 
 
@@ -211,10 +211,10 @@ if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = 'UTK'
 
-    model = load_base_model(-10, 4)
-    optimizer = Adam(1e-5)
+    model = load_base_model(-3, 4)
+    optimizer = Adam(1e-4)
     model.compile(
-        optimizer=optimizer, 
+        optimizer='rmsprop', 
         loss="binary_crossentropy",
         metrics=[tf.metrics.AUC(), macro_f1, 'accuracy']
          )
@@ -230,7 +230,7 @@ if __name__ == "__main__":
         horizontal_flip=True,
         fill_mode='nearest'
         )
-    data = imagegen.flow_from_dataframe(df, batch_size=256)
+    data = imagegen.flow_from_dataframe(df, batch_size=64)
     model.fit(
         data,
         steps_per_epoch=64,
@@ -243,5 +243,5 @@ if __name__ == "__main__":
             tensorboard(),
         ],
     )
-
-    write_model_data()
+    model_path = str(project_dir / "models" / f"{UNI}.h5")
+    write_model_data(UNI, model_path, data.class_indices)
