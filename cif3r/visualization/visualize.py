@@ -10,7 +10,7 @@ import sqlite3
 from PIL import Image
 
 from cif3r.data import recycling_guidelines
-from cif3r.models.train_model import macro_f1
+from cif3r.models.train_model import macro_f1, macro_f1_loss
 from cif3r.features import preprocessing
 
 
@@ -18,7 +18,7 @@ PARENT_DIR = Path(__file__).resolve().parents[2]
 KAGGLE_DATA_PATH = PARENT_DIR / 'data/raw/DATASET/TEST'
 MODEL_DIR = PARENT_DIR / 'models'
 VIZ_DIR= PARENT_DIR / 'reports/figures'
-DEPS = {'macro_f1': macro_f1}
+DEPS = {'macro_f1_loss': macro_f1_loss, 'macro_f1': macro_f1}
 
 
 def prediction_mapping(university:str):
