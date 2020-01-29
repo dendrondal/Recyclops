@@ -29,6 +29,16 @@ def label_encoding(y_train, y_val):
     return mlb.transform(y_train), mlb.transform(y_val)
 
 
+def _calc_class_weights(df):
+    """Helper function that calculates class weights for sampling in the 
+    flow_from_datafame method"""
+    grouped = df.groupby(['class'], as_index=False).count()
+    cls_counts = {cls: count for cls, count in zip(grouped['class'], grouped['files'])}
+    df['proportions'] = df['class'].apply(lambda x: cls_counts[x] / len(df))
+    df['weight'] = df['proportions'].apply(lambda x: df['proportions'].max() / x)
+    return df
+
+
 def datagen(university:str):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
@@ -58,6 +68,7 @@ def datagen(university:str):
     for df in all_dfs:
         df.columns = ['filename', 'class']
     master_df = pd.concat(all_dfs).reset_index(drop=True)
+    weighted_df = _calc_class_weights(master_df)
     class_balances = master_df.groupby(['class']).nunique()['filename']
     print(f'Full data:/n {class_balances}')
-    return master_df
+    return weighted_df

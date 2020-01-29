@@ -158,7 +158,7 @@ if __name__ == "__main__":
         horizontal_flip=True,
         fill_mode='nearest'
         )
-    data = imagegen.flow_from_dataframe(df, batch_size=64)
+    data = imagegen.flow_from_dataframe(df, batch_size=64, weight_col='weights')
     model.fit(
         data,
         steps_per_epoch=64,
