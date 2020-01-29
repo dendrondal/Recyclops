@@ -40,6 +40,10 @@ def label_encoding(y_train, y_val):
 
 
 def datagen(university:str):
+    """Creates dataframe to be consumed by the Keras stream_from_dataframe method
+    with columns 'filename' and 'class'. Joins together both trash and recycling data, 
+    downsampling trash to prevent class imbalances."""
+    
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
     q1 = """
@@ -118,10 +122,13 @@ def checkpoint(filename):
     )   
 
 def write_model_data(university, model_name, class_mapping_dict):
+    """Creates model metadata to be consumed by the frontend in choosing a prediction
+    model and mapping output to classes"""
+
     data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
     conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
     cur = conn.cursor()
-    init = """CREATE TABLE IF NOT EXITS models (
+    init = """CREATE TABLE IF NOT EXISTS models (
         university text PRIMARY KEY,
         model_name text NOT NULL,
         prediction_index NOT NULL,
@@ -182,8 +189,8 @@ def macro_f1_loss(y, y_hat):
 @tf.function
 def macro_f1(y, y_hat, thresh=0.5):
     """Compute the macro F1-score on a batch of observations (average F1 across labels)
-    key)
-    Args:key)
+
+    Args:
         y (int32 Tensor): labels array of shape (BATCH_SIZE, N_LABELS)
         y_hat (float32 Tensor): probability matrix from forward propagation of shape (BATCH_SIZE, N_LABELS)
         thresh: probability value above which we predict positive
