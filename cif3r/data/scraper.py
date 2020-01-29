@@ -142,6 +142,28 @@ def multithreaded_save(chunks:Tuple[List[List[str]], List[List[str]]], target_pa
         ).start()
 
 
+@click.group()
+@click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
+@click.option("--result_count", default=500)
+@click.option("--model", default="2019-08-28 08:03:49.h5")
+@click.pass_context
+def cli(ctx, data_path, result_count, model):
+    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logdir = Path(data_path).parents[1] / "reports"
+    logging.basicConfig(
+        filename=logdir / "data.log", level=logging.INFO, format=log_fmt
+    )
+    logger = logging.getLogger(__name__)
+    # instantiation and path definitions go here
+    data_path = Path(data_path)
+
+    ctx.obj = {
+        'data_path': data_path,
+        'result_count': result_count,
+        'model': model
+        }
+
+
 @cli.command()
 @click.option("--dict_name", prompt=True)
 @click.option(
@@ -149,7 +171,9 @@ def multithreaded_save(chunks:Tuple[List[List[str]], List[List[str]]], target_pa
     help="If scrape_multiple is interrupted, this is the last item it scraped",
     prompt=True
 )
+@click.pass_context
 def scrape_multiple(
+    ctx,
     dict_name,
     data_path: Path,
     result_count: int,
@@ -161,12 +185,9 @@ def scrape_multiple(
     images for each individual item, hasing them, and then saving them.
     """
     # getting the recycling guidelines
-    guideline_path =from tensorflow.python.client import device_lib
- data_path.parents[0] / "external"
-    with open(guidelfrom tensorflow.python.client import device_lib
-ine_path / f"{dict_name}.pickle", "rb") as f:
-        guideline_difrom tensorflow.python.client import device_lib
-ct = pickle.load(f)
+    guideline_path = data_path.parents[0] / "external"
+    with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
+        guideline_dict = pickle.load(f)
 
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
@@ -176,14 +197,10 @@ ct = pickle.load(f)
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
 
-            forfrom tensorflow.python.client import device_lib
- query in queries:
-               from tensorflow.python.client import device_lib
- #search for value that was stopped at
-               from tensorflow.python.client import device_lib
- if interrupted_on and query != interrupted_on:
-               from tensorflow.python.client import device_lib
-     pass
+            for query in queries:
+               #search for value that was stopped at              
+                if interrupted_on and query != interrupted_on:
+                    pass
                 elif interrupted_on and query == interrupted_on:
                     interrupted_on = False
                     pass
@@ -204,20 +221,20 @@ ct = pickle.load(f)
 
 @cli.command()
 @click.option("--query", prompt=True)
-@click.option("--metadata", type=(str, str), prompt=True)
-def scrape_single(data_path, result_count, query, metadata):
+@click.option("--metadata", type=(str, str, str), prompt=True)
+@click.pass_context
+def scrape_single(ctx, query, metadata):
     """
     Scrapes single class of item. broad_category can be 'R' for recyclable or 'O'
     for not. Example is a piece of paper:
     
-    query = 'piece of paper'
-    broad_category = 'R'*,
-    primary_category = 'paper'
+    query = 'construction paper'
+    metadata = ('R', 'paper', 'piece_of_paper')*
 
     *Note that this will vary by university. This will be addressed post-scraping by the creation
     of a database with university recycling guidelines
     """
-    broad_category, primary_category, = metadata
+    broad_category, primary_category, folder_name = metadata
     valid_categories = ['O', 'R']
     if broad_category not in valid_categories:
         raise ValueError(f"broad_category must be one of {valid_categories} with R for recyclable")
@@ -229,36 +246,12 @@ def scrape_single(data_path, result_count, query, metadata):
         wd = webdriver.Chrome("/home/dal/chromedriver")
 
     clean_query = query.replace(" ", "_")
-    target_data = data_path / f"{broad_category}/{clean_query}"
+    target_path = ctx.obj['data_path'] / f"{broad_category}/{folder_name}"
     target_path.mkdir(parents=False, exist_ok=True)
-    google_img_result = fetch_image_urls(query, int(result_count), wd)
+    google_img_result = fetch_image_urls(query, int(ctx.obj['result_count']), wd)
     hashed_results = hash_urls(google_img_result)
     chunks = dict_chunker(hashed_results, 5)
     multithreaded_save(chunks, target_path)
-
-
-@click.group()
-@click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
-@click.option("--result_count", default=500)
-@click.option("--model", default="2019-08-28 08:03:49.h5")
-@click.option("--single/--multi")
-@click.pass_context
-def cli(data_path, result_count, model, single):
-    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    logdir = Path(data_path).parents[1] / "reports"
-    logging.basicConfig(
-        filename=logdir / "data.log", level=logging.INFO, format=log_fmt
-    )
-    logger = logging.getLogger(__name__)
-    # instantiation and path definitions go here
-    data_path = Path(data_path)
-    
-    # main scraping iteration
-    if single:
-        print('got here')
-        scrape_single()
-    elif multi:
-        scrape_multiple(logfile=logger)
 
 
 if __name__ == "__main__":
