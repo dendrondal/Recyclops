@@ -1,28 +1,32 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import confusion_matrix
 from pathlib import Path
 import seaborn as sb
-from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sqlite3
 from PIL import Image
-from cif3r.models.train_model import datagen, train_val_split, label_encoding
+
+from cif3r.data import recycling_guidelines
+from cif3r.models.train_model import macro_f1
+from cif3r.features import preprocessing
+
 
 PARENT_DIR = Path(__file__).resolve().parents[2]
 KAGGLE_DATA_PATH = PARENT_DIR / 'data/raw/DATASET/TEST'
 MODEL_DIR = PARENT_DIR / 'models'
 VIZ_DIR= PARENT_DIR / 'reports/figures'
+DEPS = {'macro_f1': macro_f1}
 
 
 def prediction_mapping(university:str):
     try:
-        clf = tf.keras.models.load_model(MODEL_DIR / f'{university}.h5')
+        clf = tf.keras.models.load_model(MODEL_DIR / f'{university}.h5', custom_objects=DEPS)
     except OSError:
         raise Exception(f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}")
-    df = datagen(university)
+    df = preprocessing.datagen(university)
     df = df.sample(n=int(len(df)/10), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
@@ -48,3 +52,11 @@ def plot_confusion_matrix(university:str):
     plt.ylabel('Predicted label')
     plt.savefig(VIZ_DIR / f'{university}_confusion_matrix.png')
 
+
+def make_visualizations():
+    for university in recycling_guidelines.UNIVERSITIES.keys():
+        plot_confusion_matrix(university)
+
+
+if __name__ == '__main__':
+    make_visualizations()
