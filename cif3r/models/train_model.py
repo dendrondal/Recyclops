@@ -4,98 +4,15 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import sqlite3
 import numpy as np
 import random
 import pandas as pd
-from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.model_selection import train_test_split
+from cif3r.features.preprocessing import datagen
 
  
-def train_val_split(university:str, test_size:float=0.2):
-    data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
-    conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
-    cur = conn.cursor()
-    query = """
-    SELECT
-        hash,
-        CASE
-            WHEN(recyclable = 'O') THEN 'trash'
-            WHEN(recyclable = 'R') THEN stream
-        END
-    FROM {}
-    """.format(university)
-    imgs, labels = [], []
-    for img, label in cur.execute(query):
-        imgs.append(img), labels.append(label)
-    return train_test_split(imgs, labels, test_size=test_size, random_state=42)
-
-def label_encoding(y_train, y_val):
-    mlb = MultiLabelBinarizer()
-    mlb.fit([y_train])
-    return mlb.transform(y_train), mlb.transform(y_val)
-
-
-def datagen(university:str):
-    """Creates dataframe to be consumed by the Keras stream_from_dataframe method
-    with columns 'filename' and 'class'. Joins together both trash and recycling data, 
-    downsampling trash to prevent class imbalances."""
-    
-    data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
-    conn = sqlite3.connect(str(data_dir/'metadata.sqlite3'))
-    q1 = """
-    SELECT hash,
-       stream
-    FROM   {}
-    WHERE  recyclable='R'
-    """.format(university)
-    q2 = """
-    SELECT hash, (CASE WHEN(recyclable = 'O') THEN 'trash' END)
-    FROM   {}
-    WHERE  recyclable = 'O'
-    ORDER BY RANDOM() 
-    LIMIT (
-              SELECT count(*)
-              FROM   {}
-              WHERE  recyclable = 'R')
-    """.format(university, university)
-    df1 = pd.read_sql(sql=q1, con=conn)
-    df2 = pd.read_sql(sql=q2, con=conn)
-    all_dfs = [df1, df2]
-    for df in all_dfs:
-        df.columns = ['filename', 'class']
-    master_df = pd.concat(all_dfs).reset_index(drop=True)
-    class_balances = master_df.groupby(['class']).nunique()['filename']
-    print(f'Full data:/n {class_balances}')
-    return master_df
-
-
-def process_path(file_paths):
-    for file_path in file_paths:
-        img = tf.io.read_file(file_path)
-        img = tf.image.decode_jpeg(img, channels=3)
-        img = tf.image.convert_image_dtype(img, tf.float32)
-        img = img / 255.0
-        yield tf.image.resize(img, [224, 224])
-
-
-def labeled_ds():
-    list_ds = [i for i in datagen()]
-    random.shuffle(list_ds)
-    for datum in list_ds:
-        yield process_path(datum)
-
-
-def create_dataset(Xs, ys):
-  # This is a small dataset, only load it once, and keep it in memory.
-  # use `.cache(filename)` to cache preprocessing work for datasets that don't
-  # fit in memory.
-    return [X for X in Xs], [y for y in ys]
-
-
 def load_base_model(depth: int, n_labels:int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
     desired depth from being trained."""
@@ -121,6 +38,7 @@ def checkpoint(filename):
         period=1,
     )   
 
+
 def write_model_data(university, model_name, class_mapping_dict):
     """Creates model metadata to be consumed by the frontend in choosing a prediction
     model and mapping output to classes"""
@@ -131,21 +49,34 @@ def write_model_data(university, model_name, class_mapping_dict):
     init = """CREATE TABLE IF NOT EXISTS models (
         university text PRIMARY KEY,
         model_name text NOT NULL,
-        prediction_index NOT NULL,
-        prediction_class NOT NULL
     )
     """
     cur.execute(init)
     conn.commit()
-    insert ="""INSERT INTO models 
-    (university, model_name, prediction_index, prediction_class) 
-    VALUES (?,?,?,?)
-    """
-    cur.execute(insert, 
-    (university, model_name, list(class_mapping_dict.values()),
-     list(class_mapping_dict.keys())
-    ))
+
+    subtbl = """ CREATE TABLE IF NOT EXISTS class_mapping (
+        university text PRIMARY KEY,
+        label text NOT NULL,
+        index int NOT NULL
+    )"""
+    cur.execute(subtbl)
     conn.commit()
+
+    insert ="""INSERT INTO models 
+    (university, model_name) 
+    VALUES (?,?)
+    """
+    cur.execute(insert, (university, model_name))
+    conn.commit()
+
+    insert = """INSERT INTO class_mapping 
+    (university, label, index)
+    VALUES (?,?,?)
+    """
+
+    for key, val in class_mapping_dict.items():
+        cur.execute(insert, (university, key, val))
+        conn.commit()
 
 
 data_dir = Path(__file__).resolve().parents[2] / 'data/interim'
@@ -215,7 +146,7 @@ if __name__ == "__main__":
     optimizer = Adam(1e-4)
     model.compile(
         optimizer='rmsprop', 
-        loss="binary_crossentropy",
+        loss=macro_f1_loss,
         metrics=[tf.metrics.AUC(), macro_f1, 'accuracy']
          )
 
