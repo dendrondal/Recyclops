@@ -44,7 +44,7 @@ def plot_confusion_matrix(university:str):
     print(df.head())
     labels = list(preds['labels'].keys())
     con_mat = confusion_matrix(df['class'], df['y_hat'], labels=labels)
-    figure = plt.figure(figsize=(8,8))
+    figure = plt.figure(figsize=(10,8))
     con_mat_df = pd.DataFrame(con_mat, index=labels, columns=labels)
     sb.heatmap(con_mat_df, annot=True, cmap=plt.cm.Blues)
     plt.tight_layout()
