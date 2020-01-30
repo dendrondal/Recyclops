@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
+from tensorflow.keras import optimizer
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import sqlite3
@@ -48,7 +49,7 @@ def write_model_data(university, model_name, class_mapping_dict):
     cur = conn.cursor()
     init = """CREATE TABLE IF NOT EXISTS models (
         university text PRIMARY KEY,
-        model_name text NOT NULL,
+        model_name text NOT NULL
     )
     """
     cur.execute(init)
@@ -79,13 +80,9 @@ def write_model_data(university, model_name, class_mapping_dict):
         conn.commit()
 
 
-data_dir = Path(__file__).resolve().parents[2] / "data/interim"
-conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
-
-
 def early():
     return EarlyStopping(
-        monitor="macro_f1", min_delta=0, patience=10, verbose=1, mode="auto"
+        monitor="macro_f1", min_delta=1e-3, patience=10, verbose=1, mode="max"
     )
 
 
@@ -147,7 +144,6 @@ if __name__ == "__main__":
     UNI = "UTK"
 
     model = load_base_model(-3, 4)
-    optimizer = Adam(1e-4)
     model.compile(
         optimizer="rmsprop",
         loss=macro_f1_loss,
