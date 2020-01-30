@@ -4,14 +4,14 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
-from tensorflow.keras import optimizer
+from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import sqlite3
 import numpy as np
 import random
 import pandas as pd
-from cif3r.features.preprocessing import datagen
+from cif3r.features.preprocessing import datagen, calc_class_weights
 
  
 def load_base_model(depth: int, n_labels:int):
@@ -140,14 +140,16 @@ if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = 'UTK'
 
-    model = load_base_model(-3, 4)
+    model = load_base_model(-4, 4)
     model.compile(
-        optimizer='rmsprop', 
+        optimizer=optimizers.RMSprop(), 
         loss=macro_f1_loss,
         metrics=[tf.metrics.AUC(), macro_f1, 'accuracy']
          )
 
     df = datagen(UNI)
+    class_weights = calc_class_weights(df)
+
     imagegen = ImageDataGenerator(
         validation_split=0.2,
         rotation_range=40,
@@ -158,11 +160,13 @@ if __name__ == "__main__":
         horizontal_flip=True,
         fill_mode='nearest'
         )
-    data = imagegen.flow_from_dataframe(df, batch_size=64, weight_col='weights')
+    data = imagegen.flow_from_dataframe(df)
+    encoded_weights = {data.class_indices[key]: val for key, val in class_weights.items()}
     model.fit(
         data,
-        steps_per_epoch=64,
+        steps_per_epoch=128,
         epochs=300,
+        class_weight = encoded_weights,
         callbacks=[
             checkpoint(
                 (project_dir / "models" / f"{UNI}.h5")
