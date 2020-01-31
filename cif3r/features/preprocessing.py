@@ -42,7 +42,7 @@ def _calc_class_weights(df):
     return df
 
 
-def datagen(university:str):
+def datagen(university:str, balance_classes=True):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
     downsampling trash to prevent class imbalances. 
@@ -81,8 +81,9 @@ def datagen(university:str):
 
     if balance_classes:
         grouped = master_df.groupby("class")
-        grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
+        df = grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
         print(f"Sampling {grouped.size().min()} samples from each class...")
+        return df
 
     class_balances = master_df.groupby(["class"]).nunique()["filename"]
     print(f"Full data:/n {class_balances}")

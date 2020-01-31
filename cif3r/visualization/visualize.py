@@ -30,7 +30,7 @@ def prediction_mapping(university: str):
         raise Exception(
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
-    df = preprocessing.datagen(university)
+    df = preprocessing.datagen(university, balance_classes=False)
     df = df.sample(n=int(len(df) / 10), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
