@@ -11,4 +11,6 @@ class ClassMapping(db.Model):
     __tablename__ = "class_mapping"
     university = db.Column(db.String, primary_key=True)
     label = db.Column(db.String)
-    index = db.Column(db.Integer)
+    key_index = db.Column(db.Integer)
+
+
