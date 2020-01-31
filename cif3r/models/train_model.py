@@ -22,7 +22,7 @@ def load_base_model(depth: int, n_labels: int):
         layer.trainable = False
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(256, activation='relu')(x)
+    x = Dense(128, activation='relu')(x)
     x = Dropout(0.5)(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
@@ -41,7 +41,7 @@ def checkpoint(filename):
     )
 
 
-def write_model_data(university, model_name, class_mapping_dict):
+def write_model_data(university, class_mapping_dict):
     """Creates model metadata to be consumed by the frontend in choosing a prediction
     model and mapping output to classes"""
 
@@ -49,18 +49,12 @@ def write_model_data(university, model_name, class_mapping_dict):
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
 
-    insert = """INSERT INTO models 
-    (university, model_name) 
-    VALUES (?,?)
-    """
-    cur.execute(insert, (university, model_name))
-    conn.commit()
-
     insert = """INSERT INTO class_mapping 
     (university, label, index)
     VALUES (?,?,?)
     """
     for key, val in class_mapping_dict.items():
+        print(university, key, val)
         cur.execute(insert, (university, key, val))
     conn.commit()
 
@@ -131,7 +125,7 @@ if __name__ == "__main__":
 
     model = load_base_model(-2, 4)
     model.compile(
-        optimizer=optimizers.RMSprop(),
+        optimizer=optimizers.Adam(),
         loss="binary_crossentropy",
         metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
@@ -164,5 +158,4 @@ if __name__ == "__main__":
             tensorboard(),
         ],
     )
-    model_path = str(project_dir / "models" / f"{UNI}.h5")
-    write_model_data(UNI, model_path, train.class_indices)
+    write_model_data(UNI, train.class_indices)
