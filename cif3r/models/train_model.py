@@ -2,17 +2,22 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D, Conv2D
+from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
 from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from pathlib import Path
 import sqlite3
+import click
 import numpy as np
 import random
+from pathlib import Path
 import pandas as pd
 from cif3r.features.preprocessing import datagen
+from cif3r.models.custom_metrics import macro_f1, macro_f1_loss
+from cif3r.data.recycling_guidelines import UNIVERSITIES
 from app.models import Models, ClassMapping
+
 
 def load_base_model(depth: int, n_labels: int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
@@ -50,11 +55,10 @@ def write_model_data(university, class_mapping_dict):
     cur = conn.cursor()
 
     insert = """INSERT INTO class_mapping 
-    (university, label, index)
+    (university, label, key_index)
     VALUES (?,?,?)
     """
     for key, val in class_mapping_dict.items():
-        print(university, key, val)
         cur.execute(insert, (university, key, val))
     conn.commit()
 
@@ -74,88 +78,90 @@ def tensorboard():
     )
 
 
-@tf.function
-def macro_f1_loss(y, y_hat):
-    """Compute the macro soft F1-score as a cost (average 1 - soft-F1 across all labels).
-    Use probability values instead of binary predictions.
-    
-    Args:
-        y (int32 Tensor): targets array of shape (BATCH_SIZE, N_LABELS)
-        y_hat (float32 Tensor): probability matrix from forward propagation of shape (BATCH_SIZE, N_LABELS)
-        
-    Returns:
-        cost (scalar Tensor): value of the cost function for the batch
-    """
-    y = tf.cast(y, tf.float32)
-    y_hat = tf.cast(y_hat, tf.float32)
-    tp = tf.reduce_sum(y_hat * y, axis=0)
-    fp = tf.reduce_sum(y_hat * (1 - y), axis=0)
-    fn = tf.reduce_sum((1 - y_hat) * y, axis=0)
-    soft_f1 = 2 * tp / (2 * tp + fn + fp + 1e-16)
-    cost = 1 - soft_f1  # reduce 1 - soft-f1 in order to increase soft-f1
-    macro_cost = tf.reduce_mean(cost)  # average on all labels
-    return macro_cost
+def get_optimizer():
+    """Helper function to map CLI argument to Keras method"""
+    options = {
+        'adam': optimizers.Adam,
+        'rmsprop': optimizers.RMSprop
+    }
+    return options
 
 
-@tf.function
-def macro_f1(y, y_hat, thresh=0.5):
-    """Compute the macro F1-score on a batch of observations (average F1 across labels)
+@click.command()
+@click.option(
+    '--university',
+    required=True,
+    type=click.Choice([key for key in UNIVERSITIES.keys()])
+    )
+@click.option(
+    '--optimizer',
+    default='rmsprop',
+    type=click.Choice([key for key in get_optimizer()])
+    )
+@click.option('--lr', help='Learning rate passed to optimizer')
+@click.option('--batch_size', default=32)
+@click.option(
+    '--trainable_layers', default=1,
+    help='How many layers at the end of MobileNet are trainable'
+    )
+@click.option(
+    '--loss', default='binary_crossentropy', 
+    help='Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1')
+@click.option(
+    '--plot_confusion',
+    default=True, help='Whether to plot confusion matrix after training'
+    )
+def train_model(university, optimizer, lr, batch_size, trainable_layers, loss, plot_confusion):
+    """Command line tool for model training. Loads image URIs from SQL metadata, 
+    creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
+    with early stopping condition based on validation loss (80-20 train-val split)"""
 
-    Args:
-        y (int32 Tensor): labels array of shape (BATCH_SIZE, N_LABELS)
-        y_hat (float32 Tensor): probability matrix from forward propagation of shape (BATCH_SIZE, N_LABELS)
-        thresh: probability value above which we predict positive
-        
-    Returns:
-        macro_f1 (scalar Tensor): value of macro F1 for the batch
-    """
-    y_pred = tf.cast(tf.greater(y_hat, thresh), tf.float32)
-    tp = tf.cast(tf.math.count_nonzero(y_pred * y, axis=0), tf.float32)
-    fp = tf.cast(tf.math.count_nonzero(y_pred * (1 - y), axis=0), tf.float32)
-    fn = tf.cast(tf.math.count_nonzero((1 - y_pred) * y, axis=0), tf.float32)
-    f1 = 2 * tp / (2 * tp + fn + fp + 1e-16)
-    macro_f1 = tf.reduce_mean(f1)
-    return macro_f1
-
-
-if __name__ == "__main__":
+    model = load_base_model(-int(trainable_layers), len([key for key in UNIVERSITIES['R'].keys])+1)
+    if lr:
+        optimizer = get_optimizer()[optimizer](learning_rate=lr)
+    if loss == 'macro_f1' or 'marco_f1_loss':
+        loss = macro_f1_loss
+    else:
+        optimizer = get_optimizer()[optimizer]()
     project_dir = Path(__file__).resolve().parents[2]
-    UNI = "UTK"
-    BATCH_SIZE = 32
-
-    model = load_base_model(-1, 4)
     model.compile(
-        optimizer=optimizers.RMSprop(),
-        loss="binary_crossentropy",
+        optimizer=optimizer,
+        loss=loss,
         metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
     print(model.summary())
-    df = datagen(UNI)
-
+    
     imagegen = ImageDataGenerator(
-        validation_split=0.2,
-        rotation_range=40,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        fill_mode='nearest'
-        )
-
-    train = imagegen.flow_from_dataframe(df, batch_size=BATCH_SIZE, subset='training')
-    validation = imagegen.flow_from_dataframe(df, batch_size=BATCH_SIZE, subset='validation')
+    validation_split=0.2,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
+    )
+    df = datagen(university)
+    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset='training')
+    validation = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset='validation')
 
     model.fit(
         train,
-        steps_per_epoch=train.samples // BATCH_SIZE,
+        steps_per_epoch=train.samples // batch_size,
         epochs=300,
         validation_data = validation,
-        validation_steps = validation.samples // BATCH_SIZE,
+        validation_steps = validation.samples // batch_size,
         callbacks=[
-            checkpoint((project_dir / "models" / f"{UNI}.h5")),
+            checkpoint((project_dir / "models" / f"{university}.h5")),
             early(),
             tensorboard(),
         ],
     )
-    write_model_data(UNI, train.class_indices)
+    write_model_data(university, train.class_indices)
+
+
+if __name__ == "__main__":
+    train_model()
+    
+
+
