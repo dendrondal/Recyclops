@@ -37,7 +37,10 @@ def fetch_image_urls(
         scroll_to_end(wd)
 
         # get all image thumbnail results
-        thumbnail_results = wd.find_elements_by_css_selector("img.rg_ic")
+        try:
+            thumbnail_results = wd.find_elements_by_css_selector("img.rg_ic")
+        except Exception:
+            thumbnail_results = wd.find_elements_by_css_selector("img.rg_i")
         number_results = len(thumbnail_results)
 
         for img in thumbnail_results[results_start:number_results]:
@@ -49,7 +52,10 @@ def fetch_image_urls(
                 continue
 
             # extract image urls
-            actual_images = wd.find_elements_by_css_selector("img.irc_mi")
+            try:
+                actual_images = wd.find_elements_by_css_selector("img.irc_mi")
+            except Exception:
+                actual_images = wd.find_elements_by_css_selector("img.n3NVCb")
             for actual_image in actual_images:
                 if actual_image.get_attribute("src"):
                     image_urls.add(actual_image.get_attribute("src"))
@@ -124,7 +130,7 @@ def pre_prediction(img: Image, model_name: Path):
     return valid
 
 
-def dict_chunker(result_dict:Dict[str, List[str]], n: int) -> List[List[str]]:
+def dict_chunker(result_dict: Dict[str, List[str]], n: int) -> List[List[str]]:
     flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
     keys = [flat_keys[i : i + n] for i in range(0, len(flat_keys), n)]
     vals = [flat_vals[i : i + n] for i in range(0, len(flat_vals), n)]
@@ -151,12 +157,12 @@ def download_image(folder_path: str, names: str, urls: str):
             print(f"ERROR - Could not save {url} - {e}")
 
 
-def multithreaded_save(chunks:Tuple[List[List[str]], List[List[str]]], target_path:Path):
+def multithreaded_save(
+    chunks: Tuple[List[List[str]], List[List[str]]], target_path: Path
+):
     """Takes a chunked dictionary and saves it in a mulithreaded manner."""
     for names, urls in zip(chunks[0], chunks[1]):
-        Thread(
-            target=download_image, args=(target_path, names, urls)
-        ).start()
+        Thread(target=download_image, args=(target_path, names, urls)).start()
 
 
 @click.group()
@@ -225,7 +231,7 @@ def scrape_multiple(
                 elif query == interrupted_on:
                     interrupted_on = False
                     pass
-                else:    
+                else:
                     clean_query = query.replace(" ", "_")
                     if clean_query in existing:
                         continue
@@ -248,7 +254,6 @@ def scrape_multiple(
                     logger.info(f"Finished saving images for {query}")
 
 
-
 @cli.command()
 @click.option("--query", prompt=True)
 @click.option("--metadata", type=(str, str, str), prompt=True)
@@ -265,9 +270,11 @@ def scrape_single(ctx, query, metadata):
     of a database with university recycling guidelines
     """
     broad_category, primary_category, folder_name = metadata
-    valid_categories = ['O', 'R']
+    valid_categories = ["O", "R"]
     if broad_category not in valid_categories:
-        raise ValueError(f"broad_category must be one of {valid_categories} with R for recyclable")
+        raise ValueError(
+            f"broad_category must be one of {valid_categories} with R for recyclable"
+        )
 
     # accounting for discrepancy between Ubuntu 16.04 and 18.04
     try:
@@ -276,9 +283,9 @@ def scrape_single(ctx, query, metadata):
         wd = webdriver.Chrome("/home/dal/chromedriver")
 
     clean_query = query.replace(" ", "_")
-    target_path = ctx.obj['data_path'] / f"{broad_category}/{folder_name}"
+    target_path = ctx.obj["data_path"] / f"{broad_category}/{folder_name}"
     target_path.mkdir(parents=False, exist_ok=True)
-    google_img_result = fetch_image_urls(query, int(ctx.obj['result_count']), wd)
+    google_img_result = fetch_image_urls(query, int(ctx.obj["result_count"]), wd)
     hashed_results = hash_urls(google_img_result)
     chunks = dict_chunker(hashed_results, 5)
     multithreaded_save(chunks, target_path)

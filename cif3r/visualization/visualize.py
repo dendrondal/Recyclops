@@ -21,26 +21,30 @@ VIZ_DIR= PARENT_DIR / 'reports/figures'
 DEPS = {'macro_f1_loss': macro_f1_loss, 'macro_f1': macro_f1}
 
 
-def prediction_mapping(university:str):
+def prediction_mapping(university: str):
     try:
-        clf = tf.keras.models.load_model(MODEL_DIR / f'{university}.h5', custom_objects=DEPS)
+        clf = tf.keras.models.load_model(
+            MODEL_DIR / f"{university}.h5", custom_objects=DEPS
+        )
     except OSError:
-        raise Exception(f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}")
-    df = preprocessing.datagen(university)
-    df = df.sample(n=int(len(df)/10), random_state=42)
+        raise Exception(
+            f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
+        )
+    df = preprocessing.datagen(university, balance_classes=False)
+    df = df.sample(n=int(len(df) / 10), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
-    df['y_hat'] = y_hat
-    return {'df': df, 'labels':images.class_indices}
+    df["y_hat"] = y_hat
+    return {"df": df, "labels": images.class_indices}
 
-    
-def plot_confusion_matrix(university:str):
+
+def plot_confusion_matrix(university: str):
     """For kaggle data, prediction class is organized by folder structure, but for scraped data, 
     sql metadata is used."""
     preds = prediction_mapping(university)
-    df = preds['df']
-    df['y_hat'] = df['y_hat'].map(lambda x: np.where(x == np.amax(x))[0][0])
-    df['y_hat'] = df['y_hat'].map(lambda x: list(preds['labels'].keys())[x])
+    df = preds["df"]
+    df["y_hat"] = df["y_hat"].map(lambda x: np.where(x == np.amax(x))[0][0])
+    df["y_hat"] = df["y_hat"].map(lambda x: list(preds["labels"].keys())[x])
     print(df.head())
     labels = list(preds['labels'].keys())
     con_mat = confusion_matrix(df['class'], df['y_hat'], labels=labels)
@@ -48,9 +52,9 @@ def plot_confusion_matrix(university:str):
     con_mat_df = pd.DataFrame(con_mat, index=labels, columns=labels)
     sb.heatmap(con_mat_df, annot=True, cmap=plt.cm.Blues)
     plt.tight_layout()
-    plt.xlabel('True label')
-    plt.ylabel('Predicted label')
-    plt.savefig(VIZ_DIR / f'{university}_confusion_matrix.png')
+    plt.xlabel("True label")
+    plt.ylabel("Predicted label")
+    plt.savefig(VIZ_DIR / f"{university}_confusion_matrix.png")
 
 
 def make_visualizations():
@@ -58,5 +62,5 @@ def make_visualizations():
         plot_confusion_matrix(university)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     make_visualizations()
