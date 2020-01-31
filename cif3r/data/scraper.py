@@ -1,5 +1,5 @@
 import click
-from selenium import webdriver
+from selenium import webdriver, common
 from PIL import Image
 import hashlib
 import time
@@ -92,6 +92,23 @@ def resize_img(img: Image):
         return img
 
 
+def dirfinder(dirs: List[str]):
+    """Finds existing categories, including plurals, to make sure
+    categories aren't scraped twice"""
+
+    master_list = []
+    for dir in dirs:
+        for f in os.scandir(dir):
+            if f.is_dir():
+                master_list.append(f.name)
+
+    for name in master_list:
+        if not name.endswith('s'):
+            master_list.append(name + 's')
+
+    return master_list
+
+
 def pre_prediction(img: Image, model_name: Path):
     """
     NOT IMPLEMENTED YET
@@ -160,7 +177,8 @@ def cli(ctx, data_path, result_count, model):
     ctx.obj = {
         'data_path': data_path,
         'result_count': result_count,
-        'model': model
+        'model': model,
+        'logger': logger
         }
 
 
@@ -169,47 +187,59 @@ def cli(ctx, data_path, result_count, model):
 @click.option(
     "--interrupted_on",
     help="If scrape_multiple is interrupted, this is the last item it scraped",
-    prompt=True
+    default=False
 )
 @click.pass_context
 def scrape_multiple(
     ctx,
     dict_name,
-    data_path: Path,
-    result_count: int,
-    logfile,
-    interrupted_on=None
+    interrupted_on
 ):
     """
     Main scraping function that iterates through dict of university guidelines, scraping each google
-    images for each individual item, hasing them, and then saving them.
+    images for each individual item, hasing t hem, and then saving them.
     """
+    data_path = ctx.obj['data_path']
+    result_count = ctx.obj['result_count']
+    logger = ctx.obj['logger']
     # getting the recycling guidelines
     guideline_path = data_path.parents[0] / "external"
     with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
         guideline_dict = pickle.load(f)
 
+    #finding all existing categories
+    existing = dirfinder([str(data_path / 'O'), str(data_path/'R')])
+    print(guideline_dict)
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
-            # accounting for discrepancy between Ubuntu 16.04 and 18.04
+                # accounting for discrepancy between Ubuntu 16.04 and 18.04
             try:
                 wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
-
             for query in queries:
+                print(query)
                #search for value that was stopped at              
                 if interrupted_on and query != interrupted_on:
                     pass
-                elif interrupted_on and query == interrupted_on:
+                elif query == interrupted_on:
                     interrupted_on = False
                     pass
                 else:    
                     clean_query = query.replace(" ", "_")
+                    if clean_query in existing:
+                        continue
                     target_path = data_path / f"{broad_category}/{clean_query}"
                     target_path.mkdir(parents=False, exist_ok=True)
                     logger.info(f"Starting scraping for {query}")
-                    google_img_result = fetch_image_urls(query, int(result_count), wd)
+
+
+                    try:
+                        google_img_result = fetch_image_urls(query, int(result_count), wd)
+                    except common.exceptions.NoSuchElementException:
+                        logger.info(f"Scraping failed for {query}")
+                        continue
+
                     logger.info("Image URLs obtained! Hashing URLs...")
                     hashed_results = hash_urls(google_img_result)
                     logger.info("Saving images and metadata...")

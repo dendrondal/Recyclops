@@ -4,7 +4,7 @@ from selenium import webdriver
 from pathlib import Path
 from tensorflow.keras.utils import to_categorical
 import numpy as np
-from src.data.scraper import *
+from cif3r.data.scraper import *
 
 try:
     wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
@@ -13,12 +13,12 @@ except NotADirectoryError:
 
 TEST_DATA_DIR = Path(__file__).parents[1] / "mock_data"
 
-
+"""
 def test_fetch_image_urls():
     result = fetch_image_urls("jaberwocky", 3, wd=wd)
     assert len(result) == 3
     assert type(result[0]) == str
-
+"""
 
 def test_hash_urls():
     url_list = ["http://google.com", "http://facebook.com"]
@@ -58,6 +58,11 @@ def test_dict_chunker():
     assert result[0][0] == ["foo", "bar", "whozits"]
     assert result[1][1] == [4, 5, 6]
 
+
+def test_dirfinder():
+    dirs = [str(Path(__file__).parents[1])]
+    result = dirfinder(dirs)
+    assert len(result) == 5
 
 def test_pre_prediction_positive():
     prediction_img = Image.open(
