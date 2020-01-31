@@ -2,7 +2,7 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
+from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D, Conv2D
 from tensorflow.keras.models import Model
 from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
@@ -21,8 +21,9 @@ def load_base_model(depth: int, n_labels: int):
     for layer in base_model.layers[:depth]:
         layer.trainable = False
     x = base_model.output
-    x = Dropout(0.5)(x)
     x = GlobalAveragePooling2D()(x)
+    x = Dense(256)(x)
+    x = Dropout(0.5)(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
@@ -124,13 +125,13 @@ if __name__ == "__main__":
     UNI = "UTK"
     BATCH_SIZE = 32
 
-    model = load_base_model(-4, 4)
+    model = load_base_model(-3, 4)
     model.compile(
-        optimizer=optimizers.RMSprop(),
+        optimizer=optimizers.RMSprop(2e-5),
         loss=macro_f1_loss,
-        metrics=[tf.metrics.AUC(), macro_f1, "val_loss", "accuracy"],
+        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
-
+    print(model.summary())
     df = datagen(UNI)
 
     imagegen = ImageDataGenerator(
@@ -160,4 +161,4 @@ if __name__ == "__main__":
         ],
     )
     model_path = str(project_dir / "models" / f"{UNI}.h5")
-    write_model_data(UNI, model_path, data.class_indices)
+    write_model_data(UNI, model_path, train.class_indices)
