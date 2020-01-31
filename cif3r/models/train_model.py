@@ -21,7 +21,6 @@ def load_base_model(depth: int, n_labels: int):
     for layer in base_model.layers[:depth]:
         layer.trainable = False
     x = base_model.output
-    x = GlobalAveragePooling2D()(x)
     x = Dense(256)(x)
     x = Dropout(0.5)(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
@@ -36,7 +35,7 @@ def checkpoint(filename):
         verbose=1,
         save_best_only=True,
         save_weights_only=False,
-        mode="max",
+        mode="auto",
         period=1,
     )
 
@@ -45,6 +44,10 @@ def write_model_data(university, model_name, class_mapping_dict):
     """Creates model metadata to be consumed by the frontend in choosing a prediction
     model and mapping output to classes"""
 
+    db_path = Path(__file__).resolve().parents[2] / "data/interim/metadata.sqlite3"
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    
     insert = """INSERT INTO models 
     (university, model_name) 
     VALUES (?,?)
@@ -63,7 +66,7 @@ def write_model_data(university, model_name, class_mapping_dict):
 
 def early():
     return EarlyStopping(
-        monitor="val_loss", min_delta=1e-3, patience=5, verbose=1, mode="max"
+        monitor="val_loss", min_delta=1e-3, patience=5, verbose=1, mode="auto"
     )
 
 
@@ -125,10 +128,10 @@ if __name__ == "__main__":
     UNI = "UTK"
     BATCH_SIZE = 32
 
-    model = load_base_model(-3, 4)
+    model = load_base_model(-11, 4)
     model.compile(
-        optimizer=optimizers.RMSprop(2e-5),
-        loss=macro_f1_loss,
+        optimizer=optimizers.RMSprop(),
+        loss="binary_crossentropy",
         metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
     print(model.summary())
