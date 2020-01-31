@@ -3,6 +3,7 @@ import sqlite3
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MultiLabelBinarizer
 import pandas as pd
+import os
 
 
 def train_val_split(university: str, test_size: float = 0.2):
@@ -42,7 +43,13 @@ def _calc_class_weights(df):
     return df
 
 
-def datagen(university:str, balance_classes=True):
+def _verify_filenames(df):
+    df['valid'] = df['filename'].apply(lambda x: os.path.exists(x))
+    df = df[df.valid == Truega ]
+    print(df.head())
+    return df
+
+def datagen(university:str, balance_classes=True, verify_paths=False):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
     downsampling trash to prevent class imbalances. 
@@ -83,6 +90,10 @@ def datagen(university:str, balance_classes=True):
         grouped = master_df.groupby("class")
         df = grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
         print(f"Sampling {grouped.size().min()} samples from each class...")
+        return df
+
+    if verify_paths:
+        df = _verify_filenames(master_df)
         return df
 
     class_balances = master_df.groupby(["class"]).nunique()["filename"]
