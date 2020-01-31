@@ -88,7 +88,7 @@ def datagen(university:str, balance_classes=True, verify_paths=False):
 
     if balance_classes:
         grouped = master_df.groupby("class")
-        df = grouped.apply(lambda x: x.sample(grouped.size().max(), replace=True).reset_index(drop=True))
+        df = grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
         print(f"Sampling {grouped.size().min()} samples from each class...")
         return df
 

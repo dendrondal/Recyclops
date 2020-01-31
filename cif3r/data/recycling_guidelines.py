@@ -93,7 +93,7 @@ RECYCLABLES_PENN_STATE  = {
         "soup can",
         "pet food can",
         "aluminum foil",
-        "aerosol spray can",
+        "aerosol spray cans",
         "empty paint can"
     ],
     "bottles and films": [

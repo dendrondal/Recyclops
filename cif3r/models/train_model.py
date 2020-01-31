@@ -123,9 +123,9 @@ if __name__ == "__main__":
     UNI = "UTK"
     BATCH_SIZE = 32
 
-    model = load_base_model(-2, 4)
+    model = load_base_model(-1, 4)
     model.compile(
-        optimizer=optimizers.Adam(),
+        optimizer=optimizers.RMSprop(),
         loss="binary_crossentropy",
         metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
