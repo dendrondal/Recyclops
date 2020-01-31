@@ -2,7 +2,7 @@ from flask import render_template, Response, url_for, request
 from .config import app
 from .models import Models, ClassMapping
 from cif3r.models import predict_model
-from cif3r.data import recycling_guidelines
+from cif3r.data.recycling_guidelines import UNIVERSITIES
 import cv2
 
 application = app
@@ -38,8 +38,10 @@ def get_university_guidelines():
         university = request.args.get("location", "university")
     if request.method == "POST":
         university = request.args.get("location")
-        class_mappings = recycling_guidelines['university'] 
-        classes = [row.__index__ for row in class_mappings.keys()]
+        class_mappings = ClassMapping.query\
+            .filter(ClassMapping.university == university)\
+            .order_by(ClassMapping.key_index)
+        classes = [row for row in class_mappings.label]
         return render_template(
             "uni.html",
             result=predict_model.clf_factory(
@@ -49,6 +51,5 @@ def get_university_guidelines():
     return render_template("uni.html")
 
 
-#
 if __name__ == "__main__":
     app.run()
