@@ -140,8 +140,10 @@ TRASH_PENN_STATE = {
     ]
 }
 
-UNIVERSITIES = {"penn_state": 
-{"R": RECYCLABLES_PENN_STATE, "O": TRASH_PENN_STATE}}
+UNIVERSITIES = {
+    "UTK": {"R": RECYCLEABLE_UTK_GUIDELINES, "O": TRASH_UTK_GUIDELINES}
+    "penn_state": {"R": RECYCLABLES_PENN_STATE, "O": TRASH_PENN_STATE}
+    }
   
 
 def dump_guidelines():

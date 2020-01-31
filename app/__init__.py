@@ -1,6 +1,6 @@
 from flask import render_template, Response, url_for, request
 from .config import app
-from .models import Models
+from .models import Models, ClassMapping
 from cif3r.models import predict_model
 import cv2
 
@@ -37,10 +37,15 @@ def get_university_guidelines():
         university = request.args.get("location", "university")
     if request.method == "POST":
         university = request.args.get("location")
+        class_mappings = Models.query\
+            .filter(Models.university == university)\
+            .join(ClassMapping, Models.university == ClassMapping.university)\
+            .order_by(ClassMapping.index)
+        classes = [row.label for row in class_mappings]
         return render_template(
             "uni.html",
             result=predict_model.clf_factory(
-                university, img, ["paper", "cans", "plastic", "trash"]
+                university, img, classes
             ),
         )
     return render_template("uni.html")

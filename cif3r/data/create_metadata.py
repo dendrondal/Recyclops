@@ -13,7 +13,14 @@ def create_metadata(table_name):
     guideline_path = project_dir / "data/external" / f"{table_name}.pickle"
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
-    init = """CREATE TABLE IF NOT EXISTS {} (
+    
+    cleanup = "DROP TABLE {}".format(table_name)
+    try: 
+        cur.execute(cleanup)
+    except Exception:
+        pass
+
+    init = """CREATE TABLE {} (
         hash text PRIMARY KEY,
         recyclable text NOT NULL,
         stream text NOT NULL,
