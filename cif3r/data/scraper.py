@@ -107,7 +107,7 @@ def pre_prediction(img: Image, model_name: Path):
     return valid
 
 
-def dict_chunker(result_dict:Dict[str, List[str]], n: int) -> List[List[str]]:
+def dict_chunker(result_dict: Dict[str, List[str]], n: int) -> List[List[str]]:
     flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
     keys = [flat_keys[i : i + n] for i in range(0, len(flat_keys), n)]
     vals = [flat_vals[i : i + n] for i in range(0, len(flat_vals), n)]
@@ -134,12 +134,12 @@ def download_image(folder_path: str, names: str, urls: str):
             print(f"ERROR - Could not save {url} - {e}")
 
 
-def multithreaded_save(chunks:Tuple[List[List[str]], List[List[str]]], target_path:Path):
+def multithreaded_save(
+    chunks: Tuple[List[List[str]], List[List[str]]], target_path: Path
+):
     """Takes a chunked dictionary and saves it in a mulithreaded manner."""
     for names, urls in zip(chunks[0], chunks[1]):
-        Thread(
-            target=download_image, args=(target_path, names, urls)
-        ).start()
+        Thread(target=download_image, args=(target_path, names, urls)).start()
 
 
 @click.group()
@@ -157,11 +157,7 @@ def cli(ctx, data_path, result_count, model):
     # instantiation and path definitions go here
     data_path = Path(data_path)
 
-    ctx.obj = {
-        'data_path': data_path,
-        'result_count': result_count,
-        'model': model
-        }
+    ctx.obj = {"data_path": data_path, "result_count": result_count, "model": model}
 
 
 @cli.command()
@@ -169,16 +165,11 @@ def cli(ctx, data_path, result_count, model):
 @click.option(
     "--interrupted_on",
     help="If scrape_multiple is interrupted, this is the last item it scraped",
-    prompt=True
+    prompt=True,
 )
 @click.pass_context
 def scrape_multiple(
-    ctx,
-    dict_name,
-    data_path: Path,
-    result_count: int,
-    logfile,
-    interrupted_on=None
+    ctx, dict_name, data_path: Path, result_count: int, logfile, interrupted_on=None
 ):
     """
     Main scraping function that iterates through dict of university guidelines, scraping each google
@@ -198,13 +189,13 @@ def scrape_multiple(
                 wd = webdriver.Chrome("/home/dal/chromedriver")
 
             for query in queries:
-               #search for value that was stopped at              
+                # search for value that was stopped at
                 if interrupted_on and query != interrupted_on:
                     pass
                 elif interrupted_on and query == interrupted_on:
                     interrupted_on = False
                     pass
-                else:    
+                else:
                     clean_query = query.replace(" ", "_")
                     target_path = data_path / f"{broad_category}/{clean_query}"
                     target_path.mkdir(parents=False, exist_ok=True)
@@ -216,7 +207,6 @@ def scrape_multiple(
                     chunks = dict_chunker(hashed_results, 5)
                     multithreaded_save(chunks, target_path)
                     logger.info(f"Finished saving images for {query}")
-
 
 
 @cli.command()
@@ -235,9 +225,11 @@ def scrape_single(ctx, query, metadata):
     of a database with university recycling guidelines
     """
     broad_category, primary_category, folder_name = metadata
-    valid_categories = ['O', 'R']
+    valid_categories = ["O", "R"]
     if broad_category not in valid_categories:
-        raise ValueError(f"broad_category must be one of {valid_categories} with R for recyclable")
+        raise ValueError(
+            f"broad_category must be one of {valid_categories} with R for recyclable"
+        )
 
     # accounting for discrepancy between Ubuntu 16.04 and 18.04
     try:
@@ -246,9 +238,9 @@ def scrape_single(ctx, query, metadata):
         wd = webdriver.Chrome("/home/dal/chromedriver")
 
     clean_query = query.replace(" ", "_")
-    target_path = ctx.obj['data_path'] / f"{broad_category}/{folder_name}"
+    target_path = ctx.obj["data_path"] / f"{broad_category}/{folder_name}"
     target_path.mkdir(parents=False, exist_ok=True)
-    google_img_result = fetch_image_urls(query, int(ctx.obj['result_count']), wd)
+    google_img_result = fetch_image_urls(query, int(ctx.obj["result_count"]), wd)
     hashed_results = hash_urls(google_img_result)
     chunks = dict_chunker(hashed_results, 5)
     multithreaded_save(chunks, target_path)

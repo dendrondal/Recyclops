@@ -19,8 +19,7 @@ RECYCLEABLE_UTK_GUIDELINES = {
         "spiral bound notebooks",
         "phone books",
         "catalogs",
-        "poster board"
-        "file folders",
+        "poster board" "file folders",
     ],
     "cans": ["aluminum beverage can", "tin can", "soup can", "pet food can"],
     "plastic": [
@@ -112,7 +111,7 @@ TRASH_PENN_STATE = {
 }
 
 UNIVERSITIES = {"UTK": {"R": RECYCLEABLE_UTK_GUIDELINES, "O": TRASH_UTK_GUIDELINES}}
-  
+
 
 def dump_guidelines():
     for name, guidelines in UNIVERSITIES.items():

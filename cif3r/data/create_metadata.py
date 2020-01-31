@@ -5,12 +5,12 @@ import click
 
 
 @click.command()
-@click.option('--table_name')
+@click.option("--table_name")
 def create_metadata(table_name):
     project_dir = Path(__file__).resolve().parents[2]
-    data_path = project_dir / 'data' / 'interim'
-    db_path = data_path / 'metadata.sqlite3'
-    guideline_path = project_dir / 'data/external' / f'{table_name}.pickle'
+    data_path = project_dir / "data" / "interim"
+    db_path = data_path / "metadata.sqlite3"
+    guideline_path = project_dir / "data/external" / f"{table_name}.pickle"
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     init = """CREATE TABLE IF NOT EXISTS {} (
@@ -19,26 +19,32 @@ def create_metadata(table_name):
         stream text NOT NULL,
         subclass text NOT NULL
     )
-    """.format(table_name)
+    """.format(
+        table_name
+    )
     cur.execute(init)
 
-    with open(guideline_path, 'rb') as f:
+    with open(guideline_path, "rb") as f:
         guideline_dict = pickle.load(f)
-    for key in ['R', 'O']:
+    for key in ["R", "O"]:
         for stream in guideline_dict[key]:
             for subclass in guideline_dict[key][stream]:
-                folder = data_path / key / subclass.replace(' ', '_')
-                for img in folder.glob('*.jpg'):
+                folder = data_path / key / subclass.replace(" ", "_")
+                for img in folder.glob("*.jpg"):
                     query = """
                     INSERT INTO {} (hash, recyclable, stream, subclass) VALUES (?, ?, ?, ?)
-                    """.format(table_name) 
+                    """.format(
+                        table_name
+                    )
                     try:
-                        cur.execute(query,
-                         (str(data_path / img), key, stream, subclass))
+                        cur.execute(
+                            query, (str(data_path / img), key, stream, subclass)
+                        )
                     except sqlite3.IntegrityError:
                         pass
     conn.commit()
     conn.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     create_metadata()
