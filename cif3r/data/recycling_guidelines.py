@@ -27,6 +27,7 @@ RECYCLEABLE_UTK_GUIDELINES = {
         "clean plastic cup",
         "clean milk jug",
         "clean plastic detergent container",
+        "tupperware"
     ],
 }
 
@@ -102,7 +103,6 @@ RECYCLABLES_PENN_STATE  = {
         "bubble wrap",
         "packing pillow",
         "clean ziploc bag"
-
     ],
     "misc. plastic": [
         "clean yogurt container",
@@ -117,6 +117,7 @@ TRASH_PENN_STATE = {
         "paper towel",
         "wax paper",
         "food wrappers",
+        "cardboard"
     ],
     "glass": ["light bulbs"],
     "metal": [
@@ -126,7 +127,7 @@ TRASH_PENN_STATE = {
         "alkaline battery"
     ],
     "bottles": [
-
+        'plastic bottle with liquid'
     ],
     "misc. plastic": [
         "styrofoam",
