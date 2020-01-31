@@ -13,7 +13,7 @@ def create_metadata(table_name):
     guideline_path = project_dir / "data/external" / f"{table_name}.pickle"
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
-    
+
     cleanup = "DROP TABLE {}".format(table_name)
     try: 
         cur.execute(cleanup)
@@ -49,6 +49,22 @@ def create_metadata(table_name):
                         )
                     except sqlite3.IntegrityError:
                         pass
+
+    init = """CREATE TABLE IF NOT EXISTS models (
+        university text PRIMARY KEY,
+        model_name text NOT NULL
+    )
+    """
+    cur.execute(init)
+
+
+    subtbl = """ CREATE TABLE IF NOT EXISTS class_mapping (
+        university text PRIMARY KEY,
+        label text NOT NULL,
+        key_index integer NOT NULL
+    )"""
+    cur.execute(subtbl)
+
     conn.commit()
     conn.close()
 

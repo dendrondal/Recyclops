@@ -12,6 +12,7 @@ import numpy as np
 import random
 import pandas as pd
 from cif3r.features.preprocessing import datagen
+from app.models import Models, ClassMapping
 
 def load_base_model(depth: int, n_labels: int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
@@ -43,25 +44,6 @@ def write_model_data(university, model_name, class_mapping_dict):
     """Creates model metadata to be consumed by the frontend in choosing a prediction
     model and mapping output to classes"""
 
-    data_dir = Path(__file__).resolve().parents[2] / "data/interim"
-    conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
-    cur = conn.cursor()
-    init = """CREATE TABLE IF NOT EXISTS models (
-        university text PRIMARY KEY,
-        model_name text NOT NULL
-    )
-    """
-    cur.execute(init)
-    conn.commit()
-
-    subtbl = """ CREATE TABLE IF NOT EXISTS class_mapping (
-        university text PRIMARY KEY,
-        label text NOT NULL,
-        index int NOT NULL
-    )"""
-    cur.execute(subtbl)
-    conn.commit()
-
     insert = """INSERT INTO models 
     (university, model_name) 
     VALUES (?,?)
@@ -73,10 +55,9 @@ def write_model_data(university, model_name, class_mapping_dict):
     (university, label, index)
     VALUES (?,?,?)
     """
-
     for key, val in class_mapping_dict.items():
         cur.execute(insert, (university, key, val))
-        conn.commit()
+    conn.commit()
 
 
 def early():
@@ -85,7 +66,8 @@ def early():
     )
 
 
-def tensorboard():
+def tensorboard
+            early(),():
     return TensorBoard(
         log_dir=Path(__file__).resolve().parents[2] / "reports",
         histogram_freq=0,
@@ -141,12 +123,13 @@ def macro_f1(y, y_hat, thresh=0.5):
 if __name__ == "__main__":
     project_dir = Path(__file__).resolve().parents[2]
     UNI = "UTK"
+    BATCH_SIZE = 32
 
     model = load_base_model(-4, 4)
     model.compile(
         optimizer=optimizers.RMSprop(),
         loss=macro_f1_loss,
-        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
+        metrics=[tf.metrics.AUC(), macro_f1, "val_loss", "accuracy"],
     )
 
     df = datagen(UNI)
@@ -162,11 +145,15 @@ if __name__ == "__main__":
         fill_mode='nearest'
         )
 
-    data = imagegen.flow_from_dataframe(df, batch_size=32)
+    train = imagegen.flow_from_dataframe(df, batch_size=BATCH_SIZE, subset='training')
+    validation = imagegen.flow_from_dataframe(df, batch_size=BATCH_SIZE, subset='validation')
+
     model.fit(
-        data,
-        steps_per_epoch=64,
+        train,
+        steps_per_epoch=train.samples // BATCH_SIZE,
         epochs=300,
+        validation_data = validation,
+        validation_steps = validation.samples // BATCH_SIZE,
         callbacks=[
             checkpoint((project_dir / "models" / f"{UNI}.h5")),
             early(),
