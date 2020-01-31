@@ -31,7 +31,7 @@ def load_base_model(depth: int, n_labels: int):
 def checkpoint(filename):
     return ModelCheckpoint(
         str(filename),
-        monitor="macro_f1",
+        monitor="val_loss",
         verbose=1,
         save_best_only=True,
         save_weights_only=False,
@@ -62,12 +62,11 @@ def write_model_data(university, model_name, class_mapping_dict):
 
 def early():
     return EarlyStopping(
-        monitor="macro_f1", min_delta=1e-3, patience=5, verbose=1, mode="max"
+        monitor="val_loss", min_delta=1e-3, patience=5, verbose=1, mode="max"
     )
 
 
-def tensorboard
-            early(),():
+def tensorboard():
     return TensorBoard(
         log_dir=Path(__file__).resolve().parents[2] / "reports",
         histogram_freq=0,
