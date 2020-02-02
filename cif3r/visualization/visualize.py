@@ -44,10 +44,10 @@ def plot_confusion_matrix(university: str):
     df = preds["df"]
     df["y_hat"] = df["y_hat"].map(lambda x: np.where(x == np.amax(x))[0][0])
     df["y_hat"] = df["y_hat"].map(lambda x: list(preds["labels"].keys())[x])
-    print(df.head())
     labels = list(preds['labels'].keys())
     con_mat = confusion_matrix(df['class'], df['y_hat'], labels=labels)
     figure = plt.figure(figsize=(10,8))
+    print(f'Plotting confusion matrix for {university}...')
     con_mat_df = pd.DataFrame(con_mat, index=labels, columns=labels)
     sb.heatmap(con_mat_df, annot=True, cmap=plt.cm.Blues)
     plt.tight_layout()
@@ -62,4 +62,4 @@ def make_visualizations():
 
 
 if __name__ == "__main__":
-    plot_confusion_matrix('UTK')
+    make_visualizations()

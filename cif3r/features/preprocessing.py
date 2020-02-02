@@ -7,6 +7,9 @@ import os
 
 
 def train_val_split(university: str, test_size: float = 0.2):
+    """Basic train-test-split attached to recycling guideline 
+    SQL schema. Doesn't account for class imbalances."""
+
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
@@ -28,6 +31,8 @@ def train_val_split(university: str, test_size: float = 0.2):
 
 
 def label_encoding(y_train, y_val):
+    """Non-tensorflow mapping of class names to sparse vectors"""
+    
     mlb = MultiLabelBinarizer()
     mlb.fit([y_train])
     return mlb.transform(y_train), mlb.transform(y_val)
