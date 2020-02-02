@@ -10,7 +10,6 @@ import sqlite3
 from PIL import Image
 
 from cif3r.data import recycling_guidelines
-from cif3r.models.train_model import macro_f1, macro_f1_loss
 from cif3r.features import preprocessing
 
 
