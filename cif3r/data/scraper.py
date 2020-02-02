@@ -78,7 +78,10 @@ def fetch_image_urls(
     return list(image_urls)
 
 
-def hash_urls(img_urls: List[str]):
+def hash_urls(img_urls: List[str]) -> Dict[str, str]:
+    """Generates a pseudorandom 10-digit filename to be later used as a 
+    primary key in a SQLite3 metadata table"""
+
     hashed_urls = dict()
     for url in img_urls:
         key = str(abs(hash(url)) % (10 ** 10))
@@ -87,7 +90,8 @@ def hash_urls(img_urls: List[str]):
     return hashed_urls
 
 
-def resize_img(img: Image):
+def resize_img(img: Image) -> Image:
+    """Compresses images to save storage space, while retaining aspect ratio"""
     basewidth = 300
     if img.size[0] <= basewidth:
         return img
@@ -98,7 +102,7 @@ def resize_img(img: Image):
         return img
 
 
-def dirfinder(dirs: List[str]):
+def dirfinder(dirs: List[str]) -> List[str]:
     """Finds existing categories, including plurals, to make sure
     categories aren't scraped twice"""
 
@@ -115,29 +119,19 @@ def dirfinder(dirs: List[str]):
     return master_list
 
 
-def pre_prediction(img: Image, model_name: Path):
-    """
-    NOT IMPLEMENTED YET
+def dict_chunker(result_dict:Dict[str, str], n:int) -> List[List[str]]:
+    """Takes hashed dictionary and turns it into a nested list, so that it can
+    be iterated through in a multithreaded manner"""
 
-    Function to help validation during curation process.
-    Theoretically, first CNN should label all images as 
-    recycleable
-    """
-    clf = load_model(model_name)
-    x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    valid = clf.predict_classes(x)
-    return valid
-
-
-def dict_chunker(result_dict: Dict[str, List[str]], n: int) -> List[List[str]]:
     flat_keys, flat_vals = list(result_dict.keys()), list(result_dict.values())
     keys = [flat_keys[i : i + n] for i in range(0, len(flat_keys), n)]
     vals = [flat_vals[i : i + n] for i in range(0, len(flat_vals), n)]
     return (keys, vals)
 
 
-def download_image(folder_path: str, names: str, urls: str):
+def download_image(folder_path:str, names:str, urls:str):
+    """Requests image data and dowloads it to the folder path specified"""
+
     for name, url in zip(names, urls):
         try:
             image_content = requests.get(url).content
@@ -158,9 +152,11 @@ def download_image(folder_path: str, names: str, urls: str):
 
 
 def multithreaded_save(
-    chunks: Tuple[List[List[str]], List[List[str]]], target_path: Path
+    chunks: Tuple[List[List[str]], List[List[str]]], target_path:Path
 ):
-    """Takes a chunked dictionary and saves it in a mulithreaded manner."""
+    """Executes download_images in a mulithreaded manner. 'chunks' should be 
+    created from the dict_chunker function, called on a dictionary that maps 
+    names to filepaths"""
     for names, urls in zip(chunks[0], chunks[1]):
         Thread(target=download_image, args=(target_path, names, urls)).start()
 
@@ -168,7 +164,6 @@ def multithreaded_save(
 @click.group()
 @click.option("--data_path", type=click.Path(), default="/home/dal/CIf3R/data/interim")
 @click.option("--result_count", default=500)
-@click.option("--model", default="2019-08-28 08:03:49.h5")
 @click.pass_context
 def cli(ctx, data_path, result_count, model):
     log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -183,7 +178,6 @@ def cli(ctx, data_path, result_count, model):
     ctx.obj = {
         'data_path': data_path,
         'result_count': result_count,
-        'model': model,
         'logger': logger
         }
 
@@ -202,8 +196,8 @@ def scrape_multiple(
     interrupted_on
 ):
     """
-    Main scraping function that iterates through dict of university guidelines, scraping each google
-    images for each individual item, hasing t hem, and then saving them.
+    Main scraping function that iterates through dict of university guidelines created in create_metadata.py,
+    scraping each google images for each individual item, hasing t hem, and then saving them.
     """
     data_path = ctx.obj['data_path']
     result_count = ctx.obj['result_count']
@@ -215,16 +209,14 @@ def scrape_multiple(
 
     #finding all existing categories
     existing = dirfinder([str(data_path / 'O'), str(data_path/'R')])
-    print(guideline_dict)
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
-                # accounting for discrepancy between Ubuntu 16.04 and 18.04
+            # accounting for discrepancy between Ubuntu 16.04 and 18.04
             try:
                 wd = webdriver.Chrome("/home/dal/chromedriver/chromedriver")
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
-                print(query)
                #search for value that was stopped at              
                 if interrupted_on and query != interrupted_on:
                     pass
@@ -233,7 +225,7 @@ def scrape_multiple(
                     pass
                 else:
                     clean_query = query.replace(" ", "_")
-                    if clean_query in existing:
+                    if clean_query in existing and len(os.listdir(data_path / broad_category / clean_query)) != 0:
                         continue
                     target_path = data_path / f"{broad_category}/{clean_query}"
                     target_path.mkdir(parents=False, exist_ok=True)

@@ -147,6 +147,19 @@ UNIVERSITIES = {
   
 
 def dump_guidelines():
+    """This file is used for hand curation of university of recycling guidelines (see schema below)
+    This function dumps pickled dictionaries into the external data directories.
+
+    Dict Schema:
+    University name
+        R (Recyclable)
+            stream name (paper, plastic, etc.)
+                subcategories (clean plastic bottles, cardstock, etc.)
+        O (Trash)
+            stream name (stream names don't have to match R exactly)
+                subcategories (true negatives that are explicitly defined by the university, or dirty items)
+    """
+
     for name, guidelines in UNIVERSITIES.items():
         with open(
             Path(__file__).parents[2] / f"data/external/{name}.pickle", "wb"

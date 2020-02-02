@@ -5,8 +5,17 @@ import click
 
 
 @click.command()
-@click.option("--table_name")
+@click.option("--table_name", required=True)
 def create_metadata(table_name):
+    """Takes a pickled dictionary of recycling guidelines (see cif3r/data/recycling_guidelines.py)
+    and recursively searches for all sub-directories in the interim data directory to see if they
+    match sub-categories of major recycling streams (i.e. 'tin can' -> 'metal' -> Recyclable ('R')).
+    
+    Saves it to the metadata sqlite db, deleting the existing table if it already exists, to take into
+    account changes in the guideline dict or filesystem paths. 
+    
+    Also creates the class_mapping table to store model result mapping if it doesn't already exist"""
+
     project_dir = Path(__file__).resolve().parents[2]
     data_path = project_dir / "data" / "interim"
     db_path = data_path / "metadata.sqlite3"
@@ -17,8 +26,8 @@ def create_metadata(table_name):
     cleanup = "DROP TABLE {}".format(table_name)
     try: 
         cur.execute(cleanup)
-    except Exception:
-        pass
+    except Exception: #keeps function from halting here if this table name doesn't exist.
+        pass 
 
     init = """CREATE TABLE {} (
         hash text PRIMARY KEY,
@@ -50,16 +59,8 @@ def create_metadata(table_name):
                     except sqlite3.IntegrityError:
                         pass
 
-    init = """CREATE TABLE IF NOT EXISTS models (
-        university text PRIMARY KEY,
-        model_name text NOT NULL
-    )
-    """
-    cur.execute(init)
-
-
     subtbl = """ CREATE TABLE IF NOT EXISTS class_mapping (
-        university text PRIMARY KEY,
+        university text NOT NULL,
         label text NOT NULL,
         key_index integer NOT NULL
     )"""
