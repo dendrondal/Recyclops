@@ -27,9 +27,9 @@ def load_base_model(depth: int, n_labels: int):
         layer.trainable = False
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(128, activation='relu')(x)
+    x = Dense(128, activation="relu")(x)
     x = Dropout(0.5)(x)
-    predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
+    predictions = Dense(n_labels, activation="softmax", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
 
@@ -80,46 +80,52 @@ def tensorboard():
 
 def get_optimizer():
     """Helper function to map CLI argument to Keras method"""
-    options = {
-        'adam': optimizers.Adam,
-        'rmsprop': optimizers.RMSprop
-    }
+    options = {"adam": optimizers.Adam, "rmsprop": optimizers.RMSprop}
     return options
 
 
 @click.command()
 @click.option(
-    '--university',
+    "--university",
     required=True,
-    type=click.Choice([key for key in UNIVERSITIES.keys()])
-    )
+    type=click.Choice([key for key in UNIVERSITIES.keys()]),
+)
 @click.option(
-    '--optimizer',
-    default='rmsprop',
-    type=click.Choice([key for key in get_optimizer()])
-    )
-@click.option('--lr', help='Learning rate passed to optimizer')
-@click.option('--batch_size', default=32)
+    "--optimizer",
+    default="rmsprop",
+    type=click.Choice([key for key in get_optimizer()]),
+)
+@click.option("--lr", help="Learning rate passed to optimizer")
+@click.option("--batch_size", default=32)
 @click.option(
-    '--trainable_layers', default=1,
-    help='How many layers at the end of MobileNet are trainable'
-    )
+    "--trainable_layers",
+    default=1,
+    help="How many layers at the end of MobileNet are trainable",
+)
 @click.option(
-    '--loss', default='binary_crossentropy', 
-    help='Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1')
+    "--loss",
+    default="categorical_crossentropy",
+    help="Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1",
+)
 @click.option(
-    '--plot_confusion',
-    default=True, help='Whether to plot confusion matrix after training'
-    )
-def train_model(university, optimizer, lr, batch_size, trainable_layers, loss, plot_confusion):
+    "--plot_confusion",
+    default=True,
+    help="Whether to plot confusion matrix after training",
+)
+def train_model(
+    university, optimizer, lr, batch_size, trainable_layers, loss, plot_confusion
+):
     """Command line tool for model training. Loads image URIs from SQL metadata, 
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
 
-    model = load_base_model(-int(trainable_layers), len([key for key in UNIVERSITIES['R'].keys])+1)
+    model = load_base_model(
+        -int(trainable_layers),
+        len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1,
+    )
     if lr:
         optimizer = get_optimizer()[optimizer](learning_rate=lr)
-    if loss == 'macro_f1' or 'marco_f1_loss':
+    if loss == "macro_f1" or "marco_f1_loss":
         loss = macro_f1_loss
     else:
         optimizer = get_optimizer()[optimizer]()
@@ -130,27 +136,29 @@ def train_model(university, optimizer, lr, batch_size, trainable_layers, loss, p
         metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
     print(model.summary())
-    
+
     imagegen = ImageDataGenerator(
-    validation_split=0.2,
-    rotation_range=40,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest'
+        validation_split=0.2,
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode="nearest",
     )
     df = datagen(university)
-    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset='training')
-    validation = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset='validation')
+    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset="training")
+    validation = imagegen.flow_from_dataframe(
+        df, batch_size=batch_size, subset="validation"
+    )
 
     model.fit(
         train,
         steps_per_epoch=train.samples // batch_size,
         epochs=300,
-        validation_data = validation,
-        validation_steps = validation.samples // batch_size,
+        validation_data=validation,
+        validation_steps=validation.samples // batch_size,
         callbacks=[
             checkpoint((project_dir / "models" / f"{university}.h5")),
             early(),
@@ -162,6 +170,3 @@ def train_model(university, optimizer, lr, batch_size, trainable_layers, loss, p
 
 if __name__ == "__main__":
     train_model()
-    
-
-

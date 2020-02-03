@@ -113,13 +113,13 @@ def dirfinder(dirs: List[str]) -> List[str]:
                 master_list.append(f.name)
 
     for name in master_list:
-        if not name.endswith('s'):
-            master_list.append(name + 's')
+        if not name.endswith("s"):
+            master_list.append(name + "s")
 
     return master_list
 
 
-def dict_chunker(result_dict:Dict[str, str], n:int) -> List[List[str]]:
+def dict_chunker(result_dict: Dict[str, str], n: int) -> List[List[str]]:
     """Takes hashed dictionary and turns it into a nested list, so that it can
     be iterated through in a multithreaded manner"""
 
@@ -129,7 +129,7 @@ def dict_chunker(result_dict:Dict[str, str], n:int) -> List[List[str]]:
     return (keys, vals)
 
 
-def download_image(folder_path:str, names:str, urls:str):
+def download_image(folder_path: str, names: str, urls: str):
     """Requests image data and dowloads it to the folder path specified"""
 
     for name, url in zip(names, urls):
@@ -152,7 +152,7 @@ def download_image(folder_path:str, names:str, urls:str):
 
 
 def multithreaded_save(
-    chunks: Tuple[List[List[str]], List[List[str]]], target_path:Path
+    chunks: Tuple[List[List[str]], List[List[str]]], target_path: Path
 ):
     """Executes download_images in a mulithreaded manner. 'chunks' should be 
     created from the dict_chunker function, called on a dictionary that maps 
@@ -175,11 +175,7 @@ def cli(ctx, data_path, result_count, model):
     # instantiation and path definitions go here
     data_path = Path(data_path)
 
-    ctx.obj = {
-        'data_path': data_path,
-        'result_count': result_count,
-        'logger': logger
-        }
+    ctx.obj = {"data_path": data_path, "result_count": result_count, "logger": logger}
 
 
 @cli.command()
@@ -187,28 +183,24 @@ def cli(ctx, data_path, result_count, model):
 @click.option(
     "--interrupted_on",
     help="If scrape_multiple is interrupted, this is the last item it scraped",
-    default=False
+    default=False,
 )
 @click.pass_context
-def scrape_multiple(
-    ctx,
-    dict_name,
-    interrupted_on
-):
+def scrape_multiple(ctx, dict_name, interrupted_on):
     """
     Main scraping function that iterates through dict of university guidelines created in create_metadata.py,
     scraping each google images for each individual item, hasing t hem, and then saving them.
     """
-    data_path = ctx.obj['data_path']
-    result_count = ctx.obj['result_count']
-    logger = ctx.obj['logger']
+    data_path = ctx.obj["data_path"]
+    result_count = ctx.obj["result_count"]
+    logger = ctx.obj["logger"]
     # getting the recycling guidelines
     guideline_path = data_path.parents[0] / "external"
     with open(guideline_path / f"{dict_name}.pickle", "rb") as f:
         guideline_dict = pickle.load(f)
 
-    #finding all existing categories
-    existing = dirfinder([str(data_path / 'O'), str(data_path/'R')])
+    # finding all existing categories
+    existing = dirfinder([str(data_path / "O"), str(data_path / "R")])
     for broad_category, _dict in guideline_dict.items():
         for primary_category, queries in _dict.items():
             # accounting for discrepancy between Ubuntu 16.04 and 18.04
@@ -217,7 +209,7 @@ def scrape_multiple(
             except NotADirectoryError:
                 wd = webdriver.Chrome("/home/dal/chromedriver")
             for query in queries:
-               #search for value that was stopped at              
+                # search for value that was stopped at
                 if interrupted_on and query != interrupted_on:
                     pass
                 elif query == interrupted_on:
@@ -225,15 +217,20 @@ def scrape_multiple(
                     pass
                 else:
                     clean_query = query.replace(" ", "_")
-                    if clean_query in existing and len(os.listdir(data_path / broad_category / clean_query)) != 0:
+                    if (
+                        clean_query in existing
+                        and len(os.listdir(data_path / broad_category / clean_query))
+                        != 0
+                    ):
                         continue
                     target_path = data_path / f"{broad_category}/{clean_query}"
                     target_path.mkdir(parents=False, exist_ok=True)
                     logger.info(f"Starting scraping for {query}")
 
-
                     try:
-                        google_img_result = fetch_image_urls(query, int(result_count), wd)
+                        google_img_result = fetch_image_urls(
+                            query, int(result_count), wd
+                        )
                     except common.exceptions.NoSuchElementException:
                         logger.info(f"Scraping failed for {query}")
                         continue

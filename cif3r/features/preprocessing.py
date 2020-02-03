@@ -32,7 +32,7 @@ def train_val_split(university: str, test_size: float = 0.2):
 
 def label_encoding(y_train, y_val):
     """Non-tensorflow mapping of class names to sparse vectors"""
-    
+
     mlb = MultiLabelBinarizer()
     mlb.fit([y_train])
     return mlb.transform(y_train), mlb.transform(y_val)
@@ -41,20 +41,21 @@ def label_encoding(y_train, y_val):
 def _calc_class_weights(df):
     """Helper function that calculates class weights for sampling in the 
     flow_from_datafame method"""
-    grouped = df.groupby(['class'], as_index=False).count()
-    cls_counts = {cls: count for cls, count in zip(grouped['class'], grouped['files'])}
-    df['proportions'] = df['class'].apply(lambda x: cls_counts[x] / len(df))
-    df['weight'] = df['proportions'].apply(lambda x: df['proportions'].max() / x)
+    grouped = df.groupby(["class"], as_index=False).count()
+    cls_counts = {cls: count for cls, count in zip(grouped["class"], grouped["files"])}
+    df["proportions"] = df["class"].apply(lambda x: cls_counts[x] / len(df))
+    df["weight"] = df["proportions"].apply(lambda x: df["proportions"].max() / x)
     return df
 
 
 def _verify_filenames(df):
-    df['valid'] = df['filename'].apply(lambda x: os.path.exists(x))
-    df = df[df.valid == True ]
+    df["valid"] = df["filename"].apply(lambda x: os.path.exists(x))
+    df = df[df.valid == True]
     print(df.head())
     return df
 
-def datagen(university:str, balance_classes=True, verify_paths=False):
+
+def datagen(university: str, balance_classes=True, verify_paths=False):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
     downsampling trash to prevent class imbalances. 
@@ -93,7 +94,9 @@ def datagen(university:str, balance_classes=True, verify_paths=False):
 
     if balance_classes:
         grouped = master_df.groupby("class")
-        df = grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
+        df = grouped.apply(
+            lambda x: x.sample(grouped.size().min()).reset_index(drop=True)
+        )
         print(f"Sampling {grouped.size().min()} samples from each class...")
         return df
 

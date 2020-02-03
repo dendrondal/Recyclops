@@ -24,10 +24,10 @@ def create_metadata(table_name):
     cur = conn.cursor()
 
     cleanup = "DROP TABLE {}".format(table_name)
-    try: 
+    try:
         cur.execute(cleanup)
-    except Exception: #keeps function from halting here if this table name doesn't exist.
-        pass 
+    except Exception:  # keeps function from halting here if this table name doesn't exist.
+        pass
 
     init = """CREATE TABLE {} (
         hash text PRIMARY KEY,

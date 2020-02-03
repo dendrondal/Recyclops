@@ -1,6 +1,6 @@
 import tensorflow as tf
-    
-    
+
+
 @tf.function
 def macro_f1_loss(y, y_hat):
     """Compute the macro soft F1-score as a cost (average 1 - soft-F1 across all labels).

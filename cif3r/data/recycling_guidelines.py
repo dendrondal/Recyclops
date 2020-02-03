@@ -27,7 +27,7 @@ RECYCLEABLE_UTK_GUIDELINES = {
         "clean plastic cup",
         "clean milk jug",
         "clean plastic detergent container",
-        "tupperware"
+        "tupperware",
     ],
 }
 
@@ -58,19 +58,15 @@ TRASH_UTK_GUIDELINES = {
     "cardboard": ["cardboard food container", "packing peanuts", "styrofoam"],
 }
 
-RECYCLABLES_PENN_STATE  = {
-    "compost": [
-        "food",
-        "tea bags",
-        "coffee grounds"
-    ],
+RECYCLABLES_PENN_STATE = {
+    "compost": ["food", "tea bags", "coffee grounds"],
     "paper": [
         "pieces of paper",
         "ledger paper",
         "computer printout paper",
         "brochures",
         "magazines",
-        "envelopes", 
+        "envelopes",
         "sticky notes",
         "poster board",
         "cereal boxes",
@@ -78,14 +74,14 @@ RECYCLABLES_PENN_STATE  = {
         "paperback books",
         "journals",
         "phone books",
-        "catalogs"
+        "catalogs",
     ],
     "glass": [
         "clean empty glass bottle",
         "clear glass",
         "blue glass",
         "brown glass",
-        "green glass"
+        "green glass",
     ],
     "metal": [
         "aluminum beverage can",
@@ -94,7 +90,7 @@ RECYCLABLES_PENN_STATE  = {
         "pet food can",
         "aluminum foil",
         "aerosol spray cans",
-        "empty paint can"
+        "empty paint can",
     ],
     "bottles and films": [
         "clean plastic bottle",
@@ -102,13 +98,13 @@ RECYCLABLES_PENN_STATE  = {
         "plastic bag",
         "bubble wrap",
         "packing pillow",
-        "clean ziploc bag"
+        "clean ziploc bag",
     ],
     "misc. plastic": [
         "clean yogurt container",
         "clean plastic take-out food container",
-        "tupperware"
-    ]
+        "tupperware",
+    ],
 }
 
 TRASH_PENN_STATE = {
@@ -117,18 +113,16 @@ TRASH_PENN_STATE = {
         "paper towel",
         "wax paper",
         "food wrappers",
-        "cardboard"
+        "cardboard",
     ],
     "glass": ["light bulbs"],
     "metal": [
         "empty chip bag",
         "granola bar wrapper",
         "clean pringles can",
-        "alkaline battery"
+        "alkaline battery",
     ],
-    "bottles": [
-        'plastic bottle with liquid'
-    ],
+    "bottles": ["plastic bottle with liquid"],
     "misc. plastic": [
         "styrofoam",
         "single-use coffee cup",
@@ -136,15 +130,15 @@ TRASH_PENN_STATE = {
         "plastic straws",
         "condiment packet",
         "pen",
-        "marker"
-    ]
+        "marker",
+    ],
 }
 
 UNIVERSITIES = {
     "UTK": {"R": RECYCLEABLE_UTK_GUIDELINES, "O": TRASH_UTK_GUIDELINES},
-    "penn_state": {"R": RECYCLABLES_PENN_STATE, "O": TRASH_PENN_STATE}
-    }
-  
+    "penn_state": {"R": RECYCLABLES_PENN_STATE, "O": TRASH_PENN_STATE},
+}
+
 
 def dump_guidelines():
     """This file is used for hand curation of university of recycling guidelines (see schema below)
