@@ -85,7 +85,7 @@ def get_optimizer():
 
 
 @click.command()
-@click.option(
+@click.argument(
     "--university",
     required=True,
     type=click.Choice([key for key in UNIVERSITIES.keys()]),

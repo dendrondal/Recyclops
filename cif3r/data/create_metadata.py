@@ -5,7 +5,7 @@ import click
 
 
 @click.command()
-@click.option("--table_name", required=True)
+@click.argument("--table_name", required=True)
 def create_metadata(table_name):
     """Takes a pickled dictionary of recycling guidelines (see cif3r/data/recycling_guidelines.py)
     and recursively searches for all sub-directories in the interim data directory to see if they
