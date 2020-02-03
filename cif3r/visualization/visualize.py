@@ -8,10 +8,11 @@ import numpy as np
 import pandas as pd
 import sqlite3
 from PIL import Image
-
+import networkx as nx
 from cif3r.data import recycling_guidelines
 from cif3r.features import preprocessing
 from cif3r.models import custom_metrics
+from cif3r.data.recycling_guidelines import UNIVERSITIES
 
 
 PARENT_DIR = Path(__file__).resolve().parents[2]
@@ -41,6 +42,27 @@ def prediction_mapping(university: str):
     return {"df": df, "labels": images.class_indices}
 
 
+def plot_guideline_network(university: str):
+    G = nx.Graph()
+    G.add_node(university, color='b')
+    for key in UNIVERSITIES[university]['R']:
+        G.add_node(key, color='b')
+        G.add_edge(university, key)
+        for sub in UNIVERSITIES[university]['R'][key]:
+            G.add_node(sub, color='g')
+            G.add_edge(key, sub)
+    for key in UNIVERSITIES[university]['O']:
+        G.add_node(key, color='b')
+        G.add_edge(university, key)
+        for sub in UNIVERSITIES[university]['O'][key]:
+            G.add_node(sub, color='r')
+            G.add_edge(key, sub)
+    colors = [color for color in nx.get_node_attributes(G, 'color').values()]
+    plt.figure(figsize=(18,18))
+    nx.draw_networkx(G, node_color=colors)
+    plt.savefig(VIZ_DIR / f'{university}_network')
+
+
 def plot_confusion_matrix(university: str):
     """For kaggle data, prediction class is organized by folder structure, but for scraped data, 
     sql metadata is used."""
@@ -62,7 +84,7 @@ def plot_confusion_matrix(university: str):
 
 def make_visualizations():
     for university in recycling_guidelines.UNIVERSITIES.keys():
-        plot_confusion_matrix(university)
+        plot_guideline_network(university)
 
 
 if __name__ == "__main__":

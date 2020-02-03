@@ -42,6 +42,9 @@ TRASH_UTK_GUIDELINES = {
         "pastry wrap",
         "envelope with bubble wrap",
         "three ring binders",
+        "cardboard food container",
+        "packing peanuts",
+        "styrofoam"
     ],
     "cans": ["aerosol spray cans", "aluminum foil", "aluminum tray", "pie tin"],
     "plastic": [
@@ -55,7 +58,6 @@ TRASH_UTK_GUIDELINES = {
         "glass bottles",
         "CDs",
     ],
-    "cardboard": ["cardboard food container", "packing peanuts", "styrofoam"],
 }
 
 RECYCLABLES_PENN_STATE = {
@@ -122,7 +124,7 @@ TRASH_PENN_STATE = {
         "clean pringles can",
         "alkaline battery",
     ],
-    "bottles": ["plastic bottle with liquid"],
+    "bottles and films": ["plastic bottle with liquid"],
     "misc. plastic": [
         "styrofoam",
         "single-use coffee cup",
