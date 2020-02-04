@@ -35,7 +35,7 @@ def prediction_mapping(university: str):
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
     df = preprocessing.datagen(university, balance_classes=False, verify_paths=True)
-    df = df.sample(n=int(len(df) / 5), random_state=42)
+    #df = df.sample(n=int(len(df) / 5), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
     df["y_hat"] = y_hat
@@ -63,6 +63,14 @@ def plot_guideline_network(university: str):
     plt.savefig(VIZ_DIR / f'{university}_network')
 
 
+def plot_class_dist(university:str):
+    conn = sqlite3.connect(str(PARENT_DIR / 'data/interim/metadata.sqlite3'))
+    df = pd.read_sql("SELECT * FROM {}".format(university), conn)
+    print(df.columns)
+    df['stream'].value_counts().plot(kind='bar')
+    plt.savefig(VIZ_DIR / f'{university}_stream_histogram.png')
+
+
 def plot_confusion_matrix(university: str):
     """For kaggle data, prediction class is organized by folder structure, but for scraped data, 
     sql metadata is used."""
@@ -84,7 +92,7 @@ def plot_confusion_matrix(university: str):
 
 def make_visualizations():
     for university in recycling_guidelines.UNIVERSITIES.keys():
-        plot_guideline_network(university)
+        plot_confusion_matrix(university)
 
 
 if __name__ == "__main__":

@@ -97,7 +97,7 @@ def tensorboard():
 
 def get_optimizer():
     """Helper function to map CLI argument to Keras method"""
-    options = {"adam": optimizers.Adam, "rmsprop": optimizers.RMSprop}
+    options = {"adam": optimizers.Adam, "rmsprop": optimizers.RMSprop, "sgd": optimizers.SGD, "nadam":optimizers.Nadam}
     return options
 
 
