@@ -103,7 +103,7 @@ def get_optimizer():
 
 @click.command()
 @click.argument(
-    "--university",
+    "university",
     required=True,
     type=click.Choice([key for key in UNIVERSITIES.keys()]),
 )
