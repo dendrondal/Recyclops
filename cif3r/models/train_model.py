@@ -2,7 +2,7 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Dense, Dropout, Flatten, GlobalAveragePooling2D
+from tensorflow.keras.layers import Input, Dense, Dropout, Flatten, GlobalAveragePooling2D, Conv2D, MaxPooling2D
 from tensorflow.keras.models import Model
 from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
@@ -19,6 +19,22 @@ from cif3r.data.recycling_guidelines import UNIVERSITIES
 from app.models import Models, ClassMapping
 
 
+def ad_hoc_cnn(n_labels:int):
+    """Custom CNN for non-transfer learning"""
+    inputs = Input(shape=(224,))
+    x = Conv2D(32, (3,3), activation='relu')(inputs)
+    x = MaxPooling2D((2,2))(x)
+    x = Conv2D(64, (3,3), activation='relu')(x)
+    x = MaxPooling2D((2,2))(x)
+    x = Conv2D(128, (3,3), activation='relu')(x)
+    x = MaxPooling2D((2,2))(x)
+    x = Conv2D(128, (3,3), activation='relu')(x)
+    x = MaxPooling2D((2,2))(x)
+    x = Flatten()(x)
+    x = Dense(512, activation='relu')(x)
+    predictions = Dense(n_labels, activation="softmax", name="output")(x)
+
+
 def load_base_model(depth: int, n_labels: int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
     desired depth from being trained."""
@@ -27,6 +43,7 @@ def load_base_model(depth: int, n_labels: int):
         layer.trainable = False
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
+    x = Flatten()(x)
     x = Dense(128, activation="relu")(x)
     x = Dropout(0.5)(x)
     predictions = Dense(n_labels, activation="softmax", name="output")(x)
@@ -96,6 +113,7 @@ def get_optimizer():
     type=click.Choice([key for key in get_optimizer()]),
 )
 @click.option("--lr", help="Learning rate passed to optimizer")
+@click.option("--sampling", help="Whether to over- or under-sample training set")
 @click.option("--batch_size", default=32)
 @click.option(
     "--trainable_layers",
@@ -113,7 +131,7 @@ def get_optimizer():
     help="Whether to plot confusion matrix after training",
 )
 def train_model(
-    university, optimizer, lr, batch_size, trainable_layers, loss, plot_confusion
+    university, optimizer, lr, sampling, batch_size, trainable_layers, loss, plot_confusion
 ):
     """Command line tool for model training. Loads image URIs from SQL metadata, 
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
@@ -124,7 +142,7 @@ def train_model(
         len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1,
     )
     if lr:
-        optimizer = get_optimizer()[optimizer](learning_rate=lr)
+        optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
         loss = macro_f1_loss
     else:
@@ -147,7 +165,7 @@ def train_model(
         horizontal_flip=True,
         fill_mode="nearest",
     )
-    df = datagen(university)
+    df = datagen(university, balance_method=sampling)
     train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset="training")
     validation = imagegen.flow_from_dataframe(
         df, batch_size=batch_size, subset="validation"

@@ -55,7 +55,7 @@ def _verify_filenames(df):
     return df
 
 
-def datagen(university: str, balance_classes=True, verify_paths=False):
+def datagen(university:str, balance_method:str=None, verify_paths:bool=False):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
     downsampling trash to prevent class imbalances. 
@@ -91,19 +91,30 @@ def datagen(university: str, balance_classes=True, verify_paths=False):
     for df in all_dfs:
         df.columns = ["filename", "class"]
     master_df = pd.concat(all_dfs).reset_index(drop=True)
-
-    if balance_classes:
-        grouped = master_df.groupby("class")
+    
+    valid_techniques = ['oversampling', 'undersampling', None]
+    grouped = master_df.groupby("class")
+        
+    if balance_method == None:
+        df = master_df
+    elif balance_method == 'undersampling':
         df = grouped.apply(
             lambda x: x.sample(grouped.size().min()).reset_index(drop=True)
         )
         print(f"Sampling {grouped.size().min()} samples from each class...")
         return df
+    elif balance_method == 'oversampling':
+        df = grouped.apply(
+            lambda x: x.sample(grouped.size.max(), replace=True).reset_index(drop=True)
+        )
+        print(f"Sampling {grouped.size().max()} samples from each class...")
+    else:
+        raise Exception(f'balance_method arument must be one of {valid_techniques}')
 
     if verify_paths:
-        df = _verify_filenames(master_df)
+        df = _verify_filenames(df)
         return df
 
-    class_balances = master_df.groupby(["class"]).nunique()["filename"]
+    class_balances = df.groupby(["class"]).nunique()["filename"]
     print(f"Full data:/n {class_balances}")
-    return master_df
+    return df
