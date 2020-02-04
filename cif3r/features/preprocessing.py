@@ -115,6 +115,4 @@ def datagen(university:str, balance_method:str=None, verify_paths:bool=False):
         df = _verify_filenames(df)
         return df
 
-    class_balances = master_df.groupby(["class"]).nunique()["filename"]
-    print(f"Full data:/n {class_balances}")
     return df
