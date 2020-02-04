@@ -23,17 +23,23 @@ def ad_hoc_cnn(n_labels:int):
     """Custom CNN for non-transfer learning"""
     inputs = Input(shape=(224,))
     x = Conv2D(32, (3,3), activation='relu')(inputs)
+    x = Conv2D(32, (3,3), activation='relu')(inputs)
+    x = Conv2D(32, (3,3), activation='relu')(inputs)
     x = MaxPooling2D((2,2))(x)
+    x = Dropout(0.25)(x)
     x = Conv2D(64, (3,3), activation='relu')(x)
-    x = MaxPooling2D((2,2))(x)
-    x = Conv2D(128, (3,3), activation='relu')(x)
-    x = MaxPooling2D((2,2))(x)
-    x = Conv2D(128, (3,3), activation='relu')(x)
-    x = MaxPooling2D((2,2))(x)
-    x = Flatten()(x)
+    x = Conv2D(64, (3,3), activation='relu')(x)
+    x = Conv2D(64, (3,3), activation='relu')(x)
+    x = Dropout(0.25)(x)
+    x = Flatten()(x)   
     x = Dense(512, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    x = Dense(512, activation='relu')(x)
+    x = Dropout(0.5)(x)
     predictions = Dense(n_labels, activation="softmax", name="output")(x)
-
+    model = Model(inputs=inputs, outputs=predictions)
+    return model
+    
 
 def load_base_model(depth: int, n_labels: int):
     """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
@@ -103,7 +109,7 @@ def get_optimizer():
 
 @click.command()
 @click.argument(
-    "--university",
+    "university",
     required=True,
     type=click.Choice([key for key in UNIVERSITIES.keys()]),
 )
@@ -137,10 +143,11 @@ def train_model(
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
 
-    model = load_base_model(
-        -int(trainable_layers),
-        len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1,
-    )
+    # model = load_base_model(
+    #     -int(trainable_layers),
+    #     len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1,
+    # )
+    model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1)
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
