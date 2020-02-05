@@ -34,10 +34,10 @@ def ad_hoc_cnn(n_labels:int):
     x = Conv2D(32, (2,2), activation='relu')(x)
     x = MaxPooling2D((2,2))(x)
     x = Dense(1024, activation='relu')(x)
-    x = Dropout(0.6)(x)
+    x = Dropout(0.3)(x)
     x = Dense(2048, activation='tanh')(x)
-    x = Dropout(0.7)(x)
-    predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
+    x = Dropout(0.5)(x)
+    predictions = Dense(n_labels, activation="softmax", name="output")(x)
     model = Model(inputs=inputs, outputs=predictions)
     return model
     
@@ -133,7 +133,7 @@ def get_optimizer():
 )
 @click.option(
     "--loss",
-    default="binary_crossentropy",
+    default="categorical_crossentropy",
     help="Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1",
 )
 @click.option(
@@ -148,7 +148,7 @@ def train_model(
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
     #model = load_base_model( -int(trainable_layers), 1)
-    model = ad_hoc_cnn(1)
+    model = ad_hoc_cnn(len([key for key in UNIVERSITIES['R'].keys])+1)
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
@@ -159,7 +159,7 @@ def train_model(
     model.compile(
         optimizer=optimizer,
         loss=loss,
-        metrics=[macro_f1, "accuracy"],
+        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
     )
     print(model.summary())
 
@@ -177,7 +177,7 @@ def train_model(
     df = binary_datagen(university)
     train = imagegen.flow_from_dataframe(df, batch_size=batch_size, color_mode='grayscale', target_size=(400,400), subset="training")
     validation = imagegen.flow_from_dataframe(
-        df, batch_size=batch_size, target_size=(400,400), subset="validation"
+        df, batch_size=batch_size, color_mode='grayscale', target_size=(400,400), subset="validation"
     )
 
     model.fit(
