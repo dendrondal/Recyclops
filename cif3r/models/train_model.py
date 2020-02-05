@@ -148,7 +148,7 @@ def train_model(
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
     #model = load_base_model( -int(trainable_layers), 1)
-    model = ad_hoc_cnn(len([key for key in UNIVERSITIES['R'].keys])+1)
+    model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]['R'].keys()])+1)
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
@@ -159,7 +159,7 @@ def train_model(
     model.compile(
         optimizer=optimizer,
         loss=loss,
-        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
+        metrics=[macro_f1, "accuracy"],
     )
     print(model.summary())
 
@@ -174,7 +174,7 @@ def train_model(
         rescale=1./255,
         fill_mode="nearest",
     )
-    df = binary_datagen(university)
+    df = datagen(university)
     train = imagegen.flow_from_dataframe(df, batch_size=batch_size, color_mode='grayscale', target_size=(400,400), subset="training")
     validation = imagegen.flow_from_dataframe(
         df, batch_size=batch_size, color_mode='grayscale', target_size=(400,400), subset="validation"
