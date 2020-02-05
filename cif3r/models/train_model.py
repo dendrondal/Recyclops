@@ -13,15 +13,16 @@ import numpy as np
 import random
 from pathlib import Path
 import pandas as pd
-from cif3r.features.preprocessing import datagen
+from cif3r.features.preprocessing import datagen, binary_datagen
 from cif3r.models.custom_metrics import macro_f1, macro_f1_loss
 from cif3r.data.recycling_guidelines import UNIVERSITIES
+from cif3r.visualization.visualize import plot_confusion_matrix
 from app.models import Models, ClassMapping
 
 
 def ad_hoc_cnn(n_labels:int):
     """Custom CNN for non-transfer learning"""
-    inputs = Input(shape=(224,))
+    inputs = Input(shape=(95,95,3))
     x = Conv2D(32, (3,3), activation='relu')(inputs)
     x = Conv2D(32, (3,3), activation='relu')(inputs)
     x = Conv2D(32, (3,3), activation='relu')(inputs)
@@ -52,7 +53,7 @@ def load_base_model(depth: int, n_labels: int):
     x = Flatten()(x)
     x = Dense(128, activation="relu")(x)
     x = Dropout(0.5)(x)
-    predictions = Dense(n_labels, activation="softmax", name="output")(x)
+    predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
 
@@ -128,7 +129,7 @@ def get_optimizer():
 )
 @click.option(
     "--loss",
-    default="categorical_crossentropy",
+    default="binary_crossentropy",
     help="Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1",
 )
 @click.option(
@@ -142,12 +143,8 @@ def train_model(
     """Command line tool for model training. Loads image URIs from SQL metadata, 
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
-
-    # model = load_base_model(
-    #     -int(trainable_layers),
-    #     len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1,
-    # )
-    model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1)
+    model = load_base_model( -int(trainable_layers), 1)
+    #model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1)
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
@@ -172,7 +169,7 @@ def train_model(
         horizontal_flip=True,
         fill_mode="nearest",
     )
-    df = datagen(university, balance_method=sampling)
+    df = binary_datagen(university)
     train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset="training")
     validation = imagegen.flow_from_dataframe(
         df, batch_size=batch_size, subset="validation"
@@ -191,6 +188,9 @@ def train_model(
         ],
     )
     write_model_data(university, train.class_indices)
+    
+    if plot_confusion:
+        plot_confusion_matrix(university)
 
 
 if __name__ == "__main__":
