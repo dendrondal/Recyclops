@@ -22,21 +22,21 @@ from app.models import Models, ClassMapping
 
 def ad_hoc_cnn(n_labels:int):
     """Custom CNN for non-transfer learning"""
-    inputs = Input(shape=(95,95,1))
-    x = Conv2D(32, (3,3), activation='relu')(inputs)
-    x = Conv2D(32, (3,3), activation='relu')(inputs)
-    x = Conv2D(32, (3,3), activation='relu')(inputs)
-    x = MaxPooling2D((2,2))(x)
-    x = Dropout(0.25)(x)
-    x = Conv2D(64, (3,3), activation='relu')(x)
-    x = Conv2D(64, (3,3), activation='relu')(x)
-    x = Conv2D(64, (3,3), activation='relu')(x)
-    x = Dropout(0.25)(x)
-    x = Flatten()(x)   
-    x = Dense(512, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    x = Dense(512, activation='relu')(x)
-    x = Dropout(0.5)(x)
+    inputs = Input(shape=(400,400,1))
+    x = Conv2D(32, (5,5), activation='relu')(inputs)
+    x = MaxPooling2D((5,5))(x)
+    x = Conv2D(64, (5,5), activation='relu')(x)
+    x = Conv2D(128, (5,5), activation='relu')(x)
+    x = MaxPooling2D((5,5))(x)
+    x = Conv2D(256, (5,5), activation='relu')(x)
+    x = MaxPooling2D((5,5))(x)
+    x = Conv2D(64, (5,5), activation='relu')(x)
+    x = Conv2D(32, (5,5), activation='relu')(x)
+    x = MaxPooling2D((5,5))(x)
+    x = Dense(1024, activation='relu')(x)
+    x = Dropout(0.6)(x)
+    x = Dense(2048, activation='tanh')(x)
+    x = Dropout(0.7)(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=inputs, outputs=predictions)
     return model
@@ -171,9 +171,9 @@ def train_model(
         fill_mode="nearest",
     )
     df = binary_datagen(university)
-    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, color_mode='grayscale', target_size=(95,95), subset="training")
+    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, color_mode='grayscale', target_size=(400,400), subset="training")
     validation = imagegen.flow_from_dataframe(
-        df, batch_size=batch_size, target_size=(95,95), subset="validation"
+        df, batch_size=batch_size, target_size=(400,400), subset="validation"
     )
 
     model.fit(
@@ -183,7 +183,7 @@ def train_model(
         validation_data=validation,
         validation_steps=validation.samples // batch_size,
         callbacks=[
-            checkpoint((project_dir / "models" / f"{university}.h5")),
+            checkpoint((project_dir / "models" / f"{university}_binary.h5")),
             early(),
             tensorboard(),
         ],
