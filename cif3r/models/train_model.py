@@ -154,7 +154,7 @@ def train_model(
         print(f'Total number of subclasses: {len(all_subcls)}')
         return all_subcls
 
-    df = sample_all(university)
+    df = datagen(university, balance_method=sampling)
     subcls = len(df.groupby(['class']).nunique())
     model = load_base_model( -int(trainable_layers), subcls)
     #model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]['R'].keys])+1)
