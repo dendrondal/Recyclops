@@ -76,6 +76,24 @@ def binary_datagen(university:str, verify_paths:bool=False):
     return df
 
 
+def sample_all(university:str, verify_paths:bool=False):
+    data_dir = Path(__file__).resolve().parents[2] / "data/interim"
+    conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
+    binary_query = """
+    SELECT
+        hash, subclass
+    FROM {}
+    """.format(university)
+    df = pd.read_sql(sql=binary_query, con=conn)
+    df.columns = ["filename", "class"]
+    print(df.head())
+    if verify_paths:
+        df = _verify_filenames(df)
+        return df
+
+    return df
+
+
 def datagen(university:str, balance_method:str=None, verify_paths:bool=False):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
