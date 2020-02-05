@@ -65,7 +65,10 @@ def binary_datagen(university:str, verify_paths:bool=False):
     """.format(university)
     df = pd.read_sql(sql=binary_query, con=conn)
     df.columns = ["filename", "class"]
-
+    grouped = df.groupby("class")
+    df = grouped.apply(
+        lambda x: x.sample(grouped.size().min()).reset_index(drop=True)
+    )
     if verify_paths:
         df = _verify_filenames(df)
         return df

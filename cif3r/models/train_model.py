@@ -22,7 +22,7 @@ from app.models import Models, ClassMapping
 
 def ad_hoc_cnn(n_labels:int):
     """Custom CNN for non-transfer learning"""
-    inputs = Input(shape=(95,95,3))
+    inputs = Input(shape=(95,95,1))
     x = Conv2D(32, (3,3), activation='relu')(inputs)
     x = Conv2D(32, (3,3), activation='relu')(inputs)
     x = Conv2D(32, (3,3), activation='relu')(inputs)
@@ -37,7 +37,7 @@ def ad_hoc_cnn(n_labels:int):
     x = Dropout(0.5)(x)
     x = Dense(512, activation='relu')(x)
     x = Dropout(0.5)(x)
-    predictions = Dense(n_labels, activation="softmax", name="output")(x)
+    predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=inputs, outputs=predictions)
     return model
     
@@ -167,12 +167,13 @@ def train_model(
         shear_range=0.2,
         zoom_range=0.2,
         horizontal_flip=True,
+        rescale=1./255,
         fill_mode="nearest",
     )
     df = binary_datagen(university)
-    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, subset="training")
+    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, color_mode='grayscale', target_size=(95,95), subset="training")
     validation = imagegen.flow_from_dataframe(
-        df, batch_size=batch_size, subset="validation"
+        df, batch_size=batch_size, target_size=(95,95), subset="validation"
     )
 
     model.fit(
