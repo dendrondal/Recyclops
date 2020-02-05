@@ -29,10 +29,10 @@ def ad_hoc_cnn(n_labels:int):
     x = Conv2D(128, (5,5), activation='relu')(x)
     x = MaxPooling2D((5,5))(x)
     x = Conv2D(256, (5,5), activation='relu')(x)
-    x = MaxPooling2D((5,5))(x)
-    x = Conv2D(64, (5,5), activation='relu')(x)
-    x = Conv2D(32, (5,5), activation='relu')(x)
-    x = MaxPooling2D((5,5))(x)
+    x = MaxPooling2D((2,2))(x)
+    x = Conv2D(64, (2,2), activation='relu')(x)
+    x = Conv2D(32, (2,2), activation='relu')(x)
+    x = MaxPooling2D((2,2))(x)
     x = Dense(1024, activation='relu')(x)
     x = Dropout(0.6)(x)
     x = Dense(2048, activation='tanh')(x)
@@ -50,9 +50,13 @@ def load_base_model(depth: int, n_labels: int):
         layer.trainable = False
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Flatten()(x)
-    x = Dense(128, activation="relu")(x)
-    x = Dropout(0.5)(x)
+    x = Conv2D(64, (5,5), activation='relu')(x)
+    x = Conv2D(32, (5,5), activation='relu')(x)
+    x = MaxPooling2D((5,5))(x)
+    x = Dense(1024, activation='relu')(x)
+    x = Dropout(0.6)(x)
+    x = Dense(2048, activation='tanh')(x)
+    x = Dropout(0.7)(x)
     predictions = Dense(n_labels, activation="sigmoid", name="output")(x)
     model = Model(inputs=base_model.inputs, outputs=predictions)
     return model
@@ -143,8 +147,8 @@ def train_model(
     """Command line tool for model training. Loads image URIs from SQL metadata, 
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
-    model = load_base_model( -int(trainable_layers), 1)
-    #model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]["R"].keys()]) + 1)
+    #model = load_base_model( -int(trainable_layers), 1)
+    model = ad_hoc_cnn(1)
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
@@ -155,7 +159,7 @@ def train_model(
     model.compile(
         optimizer=optimizer,
         loss=loss,
-        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
+        metrics=[macro_f1, "accuracy"],
     )
     print(model.summary())
 
