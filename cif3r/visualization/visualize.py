@@ -23,7 +23,7 @@ DEPS = {
     "macro_f1_loss": custom_metrics.macro_f1_loss,
     "macro_f1": custom_metrics.macro_f1,
 }
-
+COLORS = {"UTK": "orange", "penn_state": "b"}
 
 def prediction_mapping(university: str):
     try:
@@ -58,7 +58,8 @@ def plot_guideline_network(university: str):
             G.add_node(sub, color='r')
             G.add_edge(key, sub)
     colors = [color for color in nx.get_node_attributes(G, 'color').values()]
-    plt.figure(figsize=(18,18))
+    plt.figure(figsize=(13,13))
+    plt.tight_layout()
     nx.draw_networkx(G, node_color=colors)
     plt.savefig(VIZ_DIR / f'{university}_network')
 
@@ -66,9 +67,10 @@ def plot_guideline_network(university: str):
 def plot_class_dist(university:str):
     conn = sqlite3.connect(str(PARENT_DIR / 'data/interim/metadata.sqlite3'))
     df = pd.read_sql("SELECT * FROM {}".format(university), conn)
-    print(df.columns)
-    df['stream'].value_counts().plot(kind='bar')
-    plt.savefig(VIZ_DIR / f'{university}_stream_histogram.png')
+    plt.figure()
+    plt.tight_layout()
+    df.groupby(['stream']).size().plot(kind='bar', color=COLORS[university])
+    plt.savefig(VIZ_DIR / f'{university}_stream_histogram.png', bbox_inches='tight')
 
 
 def plot_confusion_matrix(university: str):
@@ -93,7 +95,7 @@ def plot_confusion_matrix(university: str):
 
 def make_visualizations():
     for university in recycling_guidelines.UNIVERSITIES.keys():
-        plot_confusion_matrix(university)
+        plot_class_dist(university)
 
 
 if __name__ == "__main__":
