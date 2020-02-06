@@ -115,9 +115,7 @@ TRASH_PENN_STATE = {
         "paper towel",
         "wax paper",
         "food wrappers",
-        "cardboard",
     ],
-    "glass": ["light bulbs"],
     "metal": [
         "empty chip bag",
         "granola bar wrapper",
