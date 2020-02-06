@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, plot_confusion_matrix
 from pathlib import Path
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ def prediction_mapping(university: str):
         raise Exception(
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
-    df = preprocessing.sample_all(university, verify_paths=True)
+    df = preprocessing.datagen(university, verify_paths=True)
     #df = df.sample(n=int(len(df) / 5), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
@@ -80,6 +80,7 @@ def plot_confusion_matrix(university: str):
     df["y_hat"] = df["y_hat"].map(lambda x: list(preds["labels"].keys())[x])
     labels = list(preds["labels"].keys())
     con_mat = confusion_matrix(df["class"], df["y_hat"], labels=labels)
+    con_mat = con_mat / con_mat.max()
     figure = plt.figure(figsize=(10, 8))
     print(f"Plotting confusion matrix for {university}...")
     con_mat_df = pd.DataFrame(con_mat, index=labels, columns=labels)
@@ -87,7 +88,7 @@ def plot_confusion_matrix(university: str):
     plt.tight_layout()
     plt.xlabel("True label")
     plt.ylabel("Predicted label")
-    plt.savefig(VIZ_DIR / f"{university}_confusion_matrix.png")
+    plt.savefig(VIZ_DIR / f"{university}_confusion_matrix.png", bbox_inches='tight')
 
 
 def make_visualizations():
