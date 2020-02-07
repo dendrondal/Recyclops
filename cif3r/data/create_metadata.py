@@ -26,7 +26,8 @@ def create_metadata(table_name):
     cleanup = "DROP TABLE {}".format(table_name)
     try:
         cur.execute(cleanup)
-    except Exception:  # keeps function from halting here if this table name doesn't exist.
+    except Exception as e:  # keeps function from halting here if this table name doesn't exist.
+        print(e)
         pass
 
     init = """CREATE TABLE {} (

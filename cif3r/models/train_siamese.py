@@ -8,6 +8,7 @@ from cif3r.features import preprocessing
 from cif3r.data.recycling_guidelines import UNIVERSITIES
 import numpy as np
 from pathlib import Path
+from PIL import Image
 import sqlite3
 import random
 
@@ -70,60 +71,50 @@ def get_batch(stream, university:str='UTK', batch_size:int=32):
     ORDER BY Random() LIMIT {batch_size/2}) 
     """
 
-    pairs = []
-    labels = []
+    pairs = dict()
+    labels, input1, input2 = [], [], []
 
     for name1, name2, label in cur.execute(query):
-        pairs.append([name1, name2])
+        input1.append(name1)
+        input2.append(name2)
         labels.append(label)
     
-    return pairs, labels
+    if len(input1) != len(input2):
+        get_batch(stream, university, batch_size)
+
+    pairs['input_1'] = load_images(input1)
+    pairs['input_2'] = load_images(input2)
+
+    return pairs, np.array(labels)
 
 
-
-def preprocess_images(image_names, seed, datagen, image_cache):
-    np.random.seed(seed)
-    X = np.zeros((len(image_names), 105, 105, 3))
-    for i, image_name in enumerate(image_names):
-        image = cached_imread(os.path.join(IMAGE_DIR, image_name), image_cache)
-        X[i] = datagen.random_transform(image)
-    return X
-
-def image_triple_generator(image_triples, batch_size):
-    datagen_args = dict(
-        validation_split=0.2,
-        rotation_range=40,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        rescale=1./255,
-        fill_mode="nearest",
-    )
-    datagen_left = ImageDataGenerator(**datagen_args)
-    datagen_right = ImageDataGenerator(**datagen_args)
-    image_cache = {}
+def load_images(filenames):
+    image_queue = tf.data.Dataset.list_files(filenames)
     
-    while True:
-        # loop once per epoch
-        num_recs = len(image_triples)
-        indices = np.random.permutation(np.arange(num_recs))
-        num_batches = num_recs // batch_size
-        for bid in range(num_batches):
-            # loop once per batch
-            batch_indices = indices[bid * batch_size : (bid + 1) * batch_size]
-            batch = [image_triples[i] for i in batch_indices]
-            # make sure image data generators generate same transformations
-            seed = np.random.randint(low=0, high=1000, size=1)[0]
-            Xleft = preprocess_images([b[0] for b in batch], seed, 
-                                      datagen_left, image_cache)
-            Xright = preprocess_images([b[1] for b in batch], seed,
-                                       datagen_right, image_cache)
-            Y = np_utils.to_categorical(np.array([b[2] for b in batch]))
-            yield Xleft, Xright, Y
+    def _decode_img(file_path):
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.image.convert_image_dtype(img, tf.float32)
+        return tf.image.resize(img, [105, 105])
+
+    imgs = [_decode_img(file) for file in image_queue]
+    batch = tf.stack(imgs, 0)
+    print(batch.shape)
+    return batch
 
 
+def scoring(model, classes, N):
+    n_correct = 0
+    for i in range(N):
+        for stream in classes:
+            inputs, targets = get_batch(stream, batch_size=8) 
+        probs = model.predict(inputs)
+        if np.argmax(probs) == np.argmax(targets):
+            n_correct += 1
+    percent_correct = (100*n_correct/N)
+    return percent_correct
+
+            
 if __name__ == '__main__':
     model = siamese_model()
     model.compile(
@@ -131,8 +122,11 @@ if __name__ == '__main__':
         loss='binary_crossentropy'
     )
     classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
-    for i in range(1, 9000):
+    baseline = 26.0
+    for i in range(1, 42000):
         (inputs, targets) = get_batch(random.choice(classes))
         loss = model.train_on_batch(inputs, targets)
-        if i % 200 == 0:
-            print(loss)
+        if i % 2 == 0:
+            print(f'Training Loss: {loss}')
+            val_acc = scoring(model, classes, 2)
+            print(f'Validation Accuracy: {val_acc}')
