@@ -4,6 +4,7 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.optimizers import Adam
 from cif3r.features import preprocessing
 from cif3r.data.recycling_guidelines import UNIVERSITIES
 import numpy as np
@@ -12,6 +13,7 @@ from PIL import Image
 import sqlite3
 import random
 import time
+from tqdm import tqdm
 
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -103,14 +105,7 @@ def process_path(imgs, label):
     return decode_img(img1), decode_img(img2), label
 
 
-def prepare_for_training(ds, batch_size=32, cache=True, shuffle_buffer_size=1000):
-  # use `.cache(filename)` to cache preprocessing work for datasets that don't
-  # fit in memory.
-  if cache:
-    if isinstance(cache, str):
-      ds = ds.cache(cache)
-    else:
-      ds = ds.cache()
+def prepare_for_training(ds, batch_size=32, shuffle_buffer_size=1000):
 
   ds = ds.shuffle(buffer_size=shuffle_buffer_size)
 
@@ -129,7 +124,7 @@ def prepare_for_training(ds, batch_size=32, cache=True, shuffle_buffer_size=1000
 if __name__ == '__main__':
     model = siamese_model()
     model.compile(
-        optimizer='adam',
+        optimizer=Adam(6e-5),
         loss='binary_crossentropy'
     )
     classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
@@ -149,22 +144,23 @@ if __name__ == '__main__':
 
     def scoring(model, classes, N):
         n_correct = 0
-        for i in range(N):
+        for i in tqdm(range(N)):
             *inputs, targets = next(iter(train_ds)) 
             probs = model.predict(inputs)
-            if np.argmax(probs.numpy()) == np.argmax(targets.numpy()):
+            if np.argmax(probs) == np.argmax(targets.numpy()):
                 n_correct += 1
         percent_correct = (100*n_correct/N)
         return percent_correct
-        
+    
+    time_start = time.time()
     for i in range(1, 42000):
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
         print(f'Training Loss (iteration {i}): {loss}')
-        if i % 200 == 0:
+        if i % 50 == 0:
             print(f'Training Loss: {loss}')
-            val_acc = scoring(model, classes, 250)
-            print(f'-----Validation Accuracy after {(time.time() - time.start)/60} min: {val_acc}')
+            val_acc = scoring(model, classes, 60)
+            print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
             if val_acc > baseline:
-                model.save()
+                model.save(PROJECT_DIR / 'models/UTK_siamese.h5')
                 baseline = val_acc
