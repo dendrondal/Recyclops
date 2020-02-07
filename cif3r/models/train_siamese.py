@@ -11,6 +11,11 @@ from pathlib import Path
 from PIL import Image
 import sqlite3
 import random
+import time
+
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 
 def siamese_model():
@@ -48,73 +53,79 @@ def siamese_model():
     return siamese_net
 
     
-def get_batch(stream, university:str='UTK', batch_size:int=32):
+def get_pairs(university:str='UTK', total_pairs:int=3200):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
-    query = f"""
-    SELECT * FROM 
-    (SELECT hash AS hash1, 
-    (SELECT hash FROM {university} AS INNER 
-    WHERE OUTER.stream = inner.stream
-    AND OUTER.recyclable = inner.recyclable) 
-    AS hash2, 1 FROM {university} AS OUTER
-    WHERE stream='{stream}' 
-    ORDER BY Random() 
-    LIMIT {batch_size/2}) 
-    UNION ALL 
-    SELECT * FROM 
-    (SELECT hash AS hash1, 
-    (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
-    AS hash2, 0 FROM {university} AS OUTER
-    WHERE stream='{stream}'
-    ORDER BY Random() LIMIT {batch_size/2}) 
-    """
 
-    pairs = dict()
-    labels, input1, input2 = [], [], []
+    pairs, labels = [], []
+    streams = [key for key in UNIVERSITIES[university]['R'].keys()]
+    for stream in streams:
+        print(f"Starting query for {stream}")
+        query = f"""
+        SELECT * FROM 
+        (SELECT hash AS hash1, 
+        (SELECT hash FROM {university} AS INNER 
+        WHERE OUTER.stream = inner.stream
+        AND OUTER.recyclable = inner.recyclable) 
+        AS hash2, 1 FROM {university} AS OUTER
+        WHERE stream='{stream}' 
+        ORDER BY Random() 
+        LIMIT {total_pairs // (len(streams)/2)}) 
+        UNION ALL 
+        SELECT * FROM 
+        (SELECT hash AS hash1, 
+        (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
+        AS hash2, 0 FROM {university} AS OUTER
+        WHERE stream='{stream}'
+        ORDER BY Random() LIMIT {total_pairs // (len(streams)/2)}) 
+        """
 
-    for name1, name2, label in cur.execute(query):
-        input1.append(name1)
-        input2.append(name2)
-        labels.append(label)
+        for name1, name2, label in cur.execute(query):
+            pairs.append([name1, name2])
+            labels.append(label)
     
-    if len(input1) != len(input2):
-        get_batch(stream, university, batch_size)
-
-    pairs['input_1'] = load_images(input1)
-    pairs['input_2'] = load_images(input2)
-
-    return pairs, np.array(labels)
+    print("Making dataset...")
+    img1_tensor = tf.constant(pairs, shape=(len(pairs), 2))
+    label_tensor = tf.constant(labels, shape=(len(labels), 1))
+    return tf.data.Dataset.from_tensor_slices((img1_tensor, label_tensor))
 
 
-def load_images(filenames):
-    image_queue = tf.data.Dataset.list_files(filenames)
-    
-    def _decode_img(file_path):
-        img = tf.io.read_file(file_path)
-        img = tf.image.decode_jpeg(img, channels=3)
-        img = tf.image.convert_image_dtype(img, tf.float32)
-        return tf.image.resize(img, [105, 105])
-
-    imgs = [_decode_img(file) for file in image_queue]
-    batch = tf.stack(imgs, 0)
-    print(batch.shape)
-    return batch
+def decode_img(img):
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    return tf.image.resize(img, [105, 105])
 
 
-def scoring(model, classes, N):
-    n_correct = 0
-    for i in range(N):
-        for stream in classes:
-            inputs, targets = get_batch(stream, batch_size=8) 
-        probs = model.predict(inputs)
-        if np.argmax(probs) == np.argmax(targets):
-            n_correct += 1
-    percent_correct = (100*n_correct/N)
-    return percent_correct
+def process_path(imgs, label):
+    img1 = tf.io.read_file(imgs[0])
+    img2 = tf.io.read_file(imgs[1])
+    return decode_img(img1), decode_img(img2), label
 
-            
+
+def prepare_for_training(ds, batch_size=32, cache=True, shuffle_buffer_size=1000):
+  # use `.cache(filename)` to cache preprocessing work for datasets that don't
+  # fit in memory.
+  if cache:
+    if isinstance(cache, str):
+      ds = ds.cache(cache)
+    else:
+      ds = ds.cache()
+
+  ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+
+  # Repeat forever
+  ds = ds.repeat()
+
+  ds = ds.batch(batch_size)
+
+  # `prefetch` lets the dataset fetch batches in the background while the model
+  # is training.
+  ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+  return ds
+
+
 if __name__ == '__main__':
     model = siamese_model()
     model.compile(
@@ -123,10 +134,37 @@ if __name__ == '__main__':
     )
     classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
     baseline = 26.0
+
+    labeled_ds = get_pairs().map(
+        process_path,
+        num_parallel_calls=AUTOTUNE
+        )
+
+    for img1, img2, label in labeled_ds.take(1):
+        print(img1.numpy().shape)
+        print(img2.numpy().shape)
+        print(label.numpy())
+
+    train_ds = prepare_for_training(labeled_ds)
+
+    def scoring(model, classes, N):
+        n_correct = 0
+        for i in range(N):
+            *inputs, targets = next(iter(train_ds)) 
+            probs = model.predict(inputs)
+            if np.argmax(probs.numpy()) == np.argmax(targets.numpy()):
+                n_correct += 1
+        percent_correct = (100*n_correct/N)
+        return percent_correct
+        
     for i in range(1, 42000):
-        (inputs, targets) = get_batch(random.choice(classes))
+        *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
-        if i % 2 == 0:
+        print(f'Training Loss (iteration {i}): {loss}')
+        if i % 200 == 0:
             print(f'Training Loss: {loss}')
-            val_acc = scoring(model, classes, 2)
-            print(f'Validation Accuracy: {val_acc}')
+            val_acc = scoring(model, classes, 250)
+            print(f'-----Validation Accuracy after {(time.time() - time.start)/60} min: {val_acc}')
+            if val_acc > baseline:
+                model.save()
+                baseline = val_acc
