@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, plot_confusion_matrix
 from pathlib import Path
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -35,7 +35,7 @@ def prediction_mapping(university: str):
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
     df = preprocessing.datagen(university, verify_paths=True)
-    df = df.sample(n=int(len(df) / 10), random_state=42)
+    #df = df.sample(n=int(len(df) / 5), random_state=42)
     images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
     y_hat = list(clf.predict(images))
     df["y_hat"] = y_hat

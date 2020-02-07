@@ -145,6 +145,7 @@ def train_model(
     """Command line tool for model training. Loads image URIs from SQL metadata, 
     creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
     with early stopping condition based on validation loss (80-20 train-val split)"""
+
     def _get_all_subcls():
         all_subcls = []
         for cat in UNIVERSITIES[university].values():
@@ -155,9 +156,10 @@ def train_model(
         return all_subcls
 
     df = datagen(university, balance_method=sampling)
-    subcls = len(df.groupby(['class']).nunique())
-    model = load_base_model( -int(trainable_layers), subcls)
+    
+    model = load_base_model( -int(trainable_layers), len([key for key in UNIVERSITIES[university]['R'].keys()])+1)
     #model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]['R'].keys])+1)
+
     if lr:
         optimizer = get_optimizer()[optimizer](lr=float(lr))
     if loss == "macro_f1" or "marco_f1_loss":
@@ -168,12 +170,12 @@ def train_model(
     model.compile(
         optimizer=optimizer,
         loss=loss,
-        metrics=[tf.metrics.AUC(), macro_f1, "accuracy"],
+        metrics=[macro_f1, "accuracy"],
     )
     print(model.summary())
 
     imagegen = ImageDataGenerator(
-        validation_split=0.2,
+        validation_split=0.3,
         rotation_range=40,
         width_shift_range=0.2,
         height_shift_range=0.2,
