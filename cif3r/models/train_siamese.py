@@ -13,6 +13,7 @@ from PIL import Image
 import sqlite3
 import random
 import time
+from tqdm import tqdm
 
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -105,8 +106,6 @@ def process_path(imgs, label):
 
 
 def prepare_for_training(ds, batch_size=32, shuffle_buffer_size=1000):
-  # use `.cache(filename)` to cache preprocessing work for datasets that don't
-  # fit in memory
 
   ds = ds.shuffle(buffer_size=shuffle_buffer_size)
 
@@ -145,22 +144,25 @@ if __name__ == '__main__':
 
     def scoring(model, classes, N):
         n_correct = 0
-        for i in range(N):
+        for i in tqdm(range(N)):
             *inputs, targets = next(iter(train_ds)) 
             probs = model.predict(inputs)
             if np.argmax(probs) == np.argmax(targets.numpy()):
                 n_correct += 1
         percent_correct = (100*n_correct/N)
         return percent_correct
-    time_start = time.time()        
+        
+    time_start = time.time()
+
     for i in range(1, 42000):
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
         print(f'Training Loss (iteration {i}): {loss}')
-        if i % 200 == 0:
+        if i % 50 == 0:
             print(f'Training Loss: {loss}')
-            val_acc = scoring(model, classes, 250)
+            val_acc = scoring(model, classes, 60)
+
             print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
             if val_acc > baseline:
-                model.save()
+                model.save(PROJECT_DIR / 'models/UTK_siamese.h5')
                 baseline = val_acc
