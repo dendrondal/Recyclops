@@ -15,3 +15,24 @@
 Think about active learning for model improvement
 
 Perhaps add additional classification for whether something is clean or dirty so end user can be told whether to clean an item off and bring it back
+
+(10, 10, 3, 64)
+(10, 10, 3, 64)
+(64,)
+(64,)
+(7, 7, 64, 128)
+(7, 7, 64, 128)
+(128,)
+(128,)
+(4, 4, 128, 128)
+(4, 4, 128, 128)
+(128,)
+(128,)
+(4, 4, 128, 256)
+(4, 4, 128, 256)
+(256,)
+(256,)
+(9216, 4096)
+(9216, 4096)
+(4096,)
+(4096,)
