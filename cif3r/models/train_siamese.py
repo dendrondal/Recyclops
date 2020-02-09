@@ -12,6 +12,7 @@ from pathlib import Path
 from PIL import Image
 import sqlite3
 import random
+from itertools import chain
 import time
 from tqdm import tqdm
 
@@ -62,32 +63,33 @@ def siamese_model():
     return siamese_net
 
     
-def get_pairs(university:str='UTK', minority_cls_count:int=800, total_pairs:int=3200):
+def get_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=400):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
 
     pairs, labels = [], []
     def _query():
-        streams = [key for key in UNIVERSITIES[university]['R'].keys()]
-        for stream in streams:
-            print(f"Starting query for {stream}")
+
+        streams = list(chain.from_iterable([key for key in UNIVERSITIES[university]['R'].values()]))
+        for subclass in streams:
+            print(f"Starting query for {subclass}")
             query = f"""
             SELECT * FROM 
             (SELECT hash AS hash1, 
             (SELECT hash FROM {university} AS INNER 
-            WHERE OUTER.stream = inner.stream
+            WHERE OUTER.subclass = inner.subclass
             AND OUTER.recyclable = inner.recyclable) 
             AS hash2, 1 FROM {university} AS OUTER
-            WHERE stream='{stream}' 
+            WHERE subclass='{subclass}' 
             ORDER BY Random() 
             LIMIT {minority_cls_count // 2}) 
             UNION ALL 
             SELECT * FROM 
             (SELECT hash AS hash1, 
-            (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
+            (SELECT hash FROM {university} AS INNER WHERE OUTER.subclass != inner.subclass) 
             AS hash2, 0 FROM {university} AS OUTER
-            WHERE stream='{stream}'
+            WHERE subclass='{subclass}'
             ORDER BY Random() LIMIT {minority_cls_count // 2}) 
             """
 
@@ -139,7 +141,7 @@ if __name__ == '__main__':
         loss='binary_crossentropy'
     )
     
-    classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
+    classes = list(chain.from_iterable([key for key in UNIVERSITIES['UTK']['R'].values()]))
     baseline = 26.0
     N = 16000
     train_labeled_ds = get_pairs(total_pairs=N).map(
@@ -170,7 +172,7 @@ if __name__ == '__main__':
         return percent_correct
     
     time_start = time.time()
-    for i in range(1, 42000):
+    for i in range(1, 13000):
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
         print(f'Training Loss (iteration {i}): {loss}')
@@ -179,6 +181,6 @@ if __name__ == '__main__':
             val_acc = scoring(model, classes, 600)
             print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
             if val_acc > baseline:
-                model.save(PROJECT_DIR / 'models/UTK_siamese.h5')
-                model.save_weights(PROJECT_DIR / 'models/UTK_siamese_weights.h5')
+                model.save(str(PROJECT_DIR / 'models/UTK_siamese.h5'))
+                model.save_weights(str(PROJECT_DIR / 'models/UTK_siamese_weights.h5'))
                 baseline = val_acc
