@@ -17,3 +17,5 @@ def clf_factory(university, img_array, labels):
     result = clf.predict(x)
     index = np.where(result == np.amax(result))[0][0]
     return labels[index]
+
+

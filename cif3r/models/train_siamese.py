@@ -24,25 +24,32 @@ def siamese_model():
     W_init = RandomNormal(stddev=1e-2, seed=42)
     b_init = RandomNormal(mean=0.5, stddev=1e-2, seed=42)
     input_shape = (105, 105, 3)
+    
+    img_input = Input(shape=input_shape)
     left_input = Input(shape=input_shape)
     right_input = Input(shape=input_shape)
-    
-    convnet = Sequential()
-    convnet.add(Conv2D(64,(10,10),activation='relu',input_shape=input_shape,
-                    kernel_initializer=W_init,kernel_regularizer=l2(2e-4)))
-    convnet.add(MaxPooling2D())
-    convnet.add(Conv2D(128,(7,7),activation='relu',
-                    kernel_regularizer=l2(2e-4),kernel_initializer=W_init,bias_initializer=b_init))
-    convnet.add(MaxPooling2D())
-    convnet.add(Conv2D(128,(4,4),activation='relu',kernel_initializer=W_init,kernel_regularizer=l2(2e-4),bias_initializer=b_init))
-    convnet.add(MaxPooling2D())
-    convnet.add(Conv2D(256,(4,4),activation='relu',kernel_initializer=W_init,kernel_regularizer=l2(2e-4),bias_initializer=b_init))
-    convnet.add(Flatten())
-    convnet.add(Dense(4096,activation="sigmoid",kernel_regularizer=l2(1e-3),kernel_initializer=W_init,bias_initializer=b_init))
+
+    x = Conv2D(64,(10,10),activation='relu',input_shape=input_shape,
+                    kernel_initializer=W_init,kernel_regularizer=l2(2e-4))(img_input)
+    x = MaxPooling2D()(x)
+    x = Conv2D(128,(7,7),activation='relu',
+                    kernel_regularizer=l2(2e-4),kernel_initializer=W_init,bias_initializer=b_init)(x)
+    x = MaxPooling2D()(x)
+    x = Conv2D(128,(4,4),activation='relu',kernel_initializer=W_init,kernel_regularizer=l2(2e-4),bias_initializer=b_init)(x)
+    x = MaxPooling2D()(x)
+    x = Conv2D(
+        256,(4,4),activation='relu',kernel_initializer=W_init, 
+        kernel_regularizer=l2(2e-4),bias_initializer=b_init)(x)
+    x = Flatten()(x)
+    out = Dense(
+        4096, activation="sigmoid", kernel_regularizer=l2(1e-3), 
+        kernel_initializer=W_init,bias_initializer=b_init)(x)
+
+    twin = Model(img_input, out)
     
     #encode each of the two inputs into a vector with the convnet
-    encoded_l = convnet(left_input)
-    encoded_r = convnet(right_input)
+    encoded_l = twin(left_input)
+    encoded_r = twin(right_input)
 
     #merge two encoded inputs with the l1 distance between them
     L1_layer = Lambda(lambda x: tf.math.abs(x[0] - x[1]))
@@ -55,37 +62,41 @@ def siamese_model():
     return siamese_net
 
     
-def get_pairs(university:str='UTK', total_pairs:int=3200):
+def get_pairs(university:str='UTK', minority_cls_count:int=800, total_pairs:int=3200):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
 
     pairs, labels = [], []
-    streams = [key for key in UNIVERSITIES[university]['R'].keys()]
-    for stream in streams:
-        print(f"Starting query for {stream}")
-        query = f"""
-        SELECT * FROM 
-        (SELECT hash AS hash1, 
-        (SELECT hash FROM {university} AS INNER 
-        WHERE OUTER.stream = inner.stream
-        AND OUTER.recyclable = inner.recyclable) 
-        AS hash2, 1 FROM {university} AS OUTER
-        WHERE stream='{stream}' 
-        ORDER BY Random() 
-        LIMIT {total_pairs // (len(streams)/2)}) 
-        UNION ALL 
-        SELECT * FROM 
-        (SELECT hash AS hash1, 
-        (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
-        AS hash2, 0 FROM {university} AS OUTER
-        WHERE stream='{stream}'
-        ORDER BY Random() LIMIT {total_pairs // (len(streams)/2)}) 
-        """
+    def _query():
+        streams = [key for key in UNIVERSITIES[university]['R'].keys()]
+        for stream in streams:
+            print(f"Starting query for {stream}")
+            query = f"""
+            SELECT * FROM 
+            (SELECT hash AS hash1, 
+            (SELECT hash FROM {university} AS INNER 
+            WHERE OUTER.stream = inner.stream
+            AND OUTER.recyclable = inner.recyclable) 
+            AS hash2, 1 FROM {university} AS OUTER
+            WHERE stream='{stream}' 
+            ORDER BY Random() 
+            LIMIT {minority_cls_count // 2}) 
+            UNION ALL 
+            SELECT * FROM 
+            (SELECT hash AS hash1, 
+            (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
+            AS hash2, 0 FROM {university} AS OUTER
+            WHERE stream='{stream}'
+            ORDER BY Random() LIMIT {minority_cls_count // 2}) 
+            """
 
-        for name1, name2, label in cur.execute(query):
-            pairs.append([name1, name2])
-            labels.append(label)
+            for name1, name2, label in cur.execute(query):
+                pairs.append([name1, name2])
+                labels.append(label)
+
+    while len(pairs) < total_pairs:
+        _query()
     
     print("Making dataset...")
     img1_tensor = tf.constant(pairs, shape=(len(pairs), 2))
@@ -127,25 +138,31 @@ if __name__ == '__main__':
         optimizer=Adam(6e-5),
         loss='binary_crossentropy'
     )
+    
     classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
     baseline = 26.0
-
-    labeled_ds = get_pairs().map(
+    N = 16000
+    train_labeled_ds = get_pairs(total_pairs=N).map(
         process_path,
         num_parallel_calls=AUTOTUNE
         )
 
-    for img1, img2, label in labeled_ds.take(1):
+    val_labeled_ds = get_pairs(total_pairs=N*1.2).map(
+        process_path,
+        num_parallel_calls=AUTOTUNE
+        )
+    for img1, img2, label in train_labeled_ds.take(1):
         print(img1.numpy().shape)
         print(img2.numpy().shape)
         print(label.numpy())
 
-    train_ds = prepare_for_training(labeled_ds)
+    train_ds = prepare_for_training(train_labeled_ds)
+    val_ds = prepare_for_training(val_labeled_ds)
 
     def scoring(model, classes, N):
         n_correct = 0
         for i in tqdm(range(N)):
-            *inputs, targets = next(iter(train_ds)) 
+            *inputs, targets = next(iter(val_ds)) 
             probs = model.predict(inputs)
             if np.argmax(probs) == np.argmax(targets.numpy()):
                 n_correct += 1
@@ -158,11 +175,11 @@ if __name__ == '__main__':
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
         print(f'Training Loss (iteration {i}): {loss}')
-        if i % 50 == 0:
+        if i % 500 == 0:
             print(f'Training Loss: {loss}')
-            val_acc = scoring(model, classes, 60)
-
+            val_acc = scoring(model, classes, 600)
             print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
             if val_acc > baseline:
                 model.save(PROJECT_DIR / 'models/UTK_siamese.h5')
+                model.save_weights(PROJECT_DIR / 'models/UTK_siamese_weights.h5')
                 baseline = val_acc
