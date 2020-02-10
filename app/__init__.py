@@ -38,8 +38,10 @@ def get_university_guidelines():
         university = request.args.get("location", "university")
     if request.method == "POST":
         university = request.args.get("location")
-        class_mappings = recycling_guidelines['university'] 
-        classes = [row.__index__ for row in class_mappings.keys()]
+        class_mappings = recycling_guidelines.UNIVERSITIES[university]['R']
+        classes = [row for row in class_mappings.keys()]
+        print(classes)
+        classes.append('trash')
         return render_template(
             "uni.html",
             result=predict_model.clf_factory(
