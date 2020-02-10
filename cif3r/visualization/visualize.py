@@ -69,7 +69,8 @@ def plot_class_dist(university:str):
     df = pd.read_sql("SELECT * FROM {}".format(university), conn)
     plt.figure()
     plt.tight_layout()
-    df.groupby(['stream']).size().plot(kind='bar', color=COLORS[university])
+    df.groupby(['stream']).size().plot(kind='barh', color=COLORS[university])
+    plt.xlabel('Count')
     plt.savefig(VIZ_DIR / f'{university}_stream_histogram.png', bbox_inches='tight')
 
 
@@ -95,7 +96,7 @@ def plot_confusion_matrix(university: str):
 
 def make_visualizations():
     for university in recycling_guidelines.UNIVERSITIES.keys():
-        plot_class_dist(university)
+        plot_confusion_matrix(university)
 
 
 if __name__ == "__main__":
