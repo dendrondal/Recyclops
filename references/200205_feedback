@@ -1,0 +1,34 @@
+-Stop using passive voice
+-Use storytelling of why recycling is important
+-Add personal slide
+-Show pictures of recycling bins in data pipeline slide
+-Conclusions slide
+-Ditch scientific notation on confusion matrix
+-Performance for specific classes was good! Maybe show missclassifed images
+-False positives are worse than false negatives
+-Make class imbalance graphs horizontal, label y-axis
+
+- Example of misclassified classes (data slide)
+- Make class labels bigger on confusion matrix
+- Be more concrete about improvements
+- Include misclassified images/convolutional filters
+- Mention how bad false positives are
+
+- Too much text on algorithm slide, data story and problem statement
+- Add more slides/transitions
+- Still too much passive voice
+- Happier about model
+- Make a big deal about building a prototype (draw a smartbin)
+- Use larger prediction labels in demo slide
+- Don't move cursor
+- Mention extensibility
+- Multi-cultural universities result in confusion. Maybe make a narrative?
+- Reiterate why these two universities were chosen
+
+- Add illustration of things being thrown away/recycled at the different places
+- Talk about differences
+- Replace ugly images with video
+- Try to make confusion matrix of penn state visible
+- Combine image examples with confusion matrix
+- Specify prototype in conclusion slide
+- Conclusion slide of a college student recycling (Possibly no text)
