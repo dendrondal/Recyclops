@@ -28,17 +28,21 @@ COLORS = {"UTK": "orange", "penn_state": "b"}
 def prediction_mapping(university: str):
     try:
         clf = tf.keras.models.load_model(
-            MODEL_DIR / f"{university}.h5", custom_objects=DEPS
+            MODEL_DIR / f"{university}_full_cls_prediction.h5", custom_objects=DEPS
         )
     except OSError:
         raise Exception(
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
-    df = preprocessing.datagen(university, verify_paths=True)
+    print(clf.summary())
+    df = preprocessing.datagen(university, balance_method='undersampling', verify_paths=True)
     #df = df.sample(n=int(len(df) / 5), random_state=42)
-    images = ImageDataGenerator().flow_from_dataframe(df, batch_size=64)
+    images = ImageDataGenerator().flow_from_dataframe(df, target_size=(105, 105), batch_size=64)
     y_hat = list(clf.predict(images))
+    print(len(y_hat))
     df["y_hat"] = y_hat
+    df.dropna(inplace=True)
+    print(df.head())
     return {"df": df, "labels": images.class_indices}
 
 
@@ -79,6 +83,7 @@ def plot_confusion_matrix(university: str):
     sql metadata is used."""
     preds = prediction_mapping(university)
     df = preds["df"]
+    print(df.head())
     df["y_hat"] = df["y_hat"].map(lambda x: np.where(x == np.amax(x))[0][0])
     df["y_hat"] = df["y_hat"].map(lambda x: list(preds["labels"].keys())[x])
     labels = list(preds["labels"].keys())
@@ -100,4 +105,5 @@ def make_visualizations():
 
 
 if __name__ == "__main__":
-    make_visualizations()
+    #make_visualizations()
+    plot_confusion_matrix('UTK')
