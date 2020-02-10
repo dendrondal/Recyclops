@@ -1,10 +1,10 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv2D, Dense, MaxPooling2D, Flatten, Lambda
+from tensorflow.keras.layers import Input, Conv2D, Dense, Dropout, MaxPooling2D, Flatten, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, SGD
 from cif3r.features import preprocessing
 from cif3r.data.recycling_guidelines import UNIVERSITIES
 import numpy as np
@@ -12,6 +12,7 @@ from pathlib import Path
 from PIL import Image
 import sqlite3
 import random
+from itertools import chain
 import time
 from tqdm import tqdm
 
@@ -41,6 +42,9 @@ def siamese_model():
         256,(4,4),activation='relu',kernel_initializer=W_init, 
         kernel_regularizer=l2(2e-4),bias_initializer=b_init)(x)
     x = Flatten()(x)
+    x = Dense(2048,  kernel_regularizer=l2(1e-3), 
+        kernel_initializer=W_init,bias_initializer=b_init, activation='tanh')(x)
+    x = Dropout(0.5)(x)
     out = Dense(
         4096, activation="sigmoid", kernel_regularizer=l2(1e-3), 
         kernel_initializer=W_init,bias_initializer=b_init)(x)
@@ -62,32 +66,33 @@ def siamese_model():
     return siamese_net
 
     
-def get_pairs(university:str='UTK', minority_cls_count:int=800, total_pairs:int=3200):
+def get_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=16000):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
 
     pairs, labels = [], []
     def _query():
-        streams = [key for key in UNIVERSITIES[university]['R'].keys()]
-        for stream in streams:
-            print(f"Starting query for {stream}")
+
+        streams = list(chain.from_iterable([key for key in UNIVERSITIES[university]['R'].values()]))
+        for subclass in streams:
+            print(f"Starting query for {subclass}")
             query = f"""
             SELECT * FROM 
             (SELECT hash AS hash1, 
             (SELECT hash FROM {university} AS INNER 
-            WHERE OUTER.stream = inner.stream
+            WHERE OUTER.subclass = inner.subclass
             AND OUTER.recyclable = inner.recyclable) 
             AS hash2, 1 FROM {university} AS OUTER
-            WHERE stream='{stream}' 
+            WHERE subclass='{subclass}' 
             ORDER BY Random() 
             LIMIT {minority_cls_count // 2}) 
             UNION ALL 
             SELECT * FROM 
             (SELECT hash AS hash1, 
-            (SELECT hash FROM {university} AS INNER WHERE OUTER.stream != inner.stream) 
+            (SELECT hash FROM {university} AS INNER WHERE OUTER.subclass != inner.subclass) 
             AS hash2, 0 FROM {university} AS OUTER
-            WHERE stream='{stream}'
+            WHERE subclass='{subclass}'
             ORDER BY Random() LIMIT {minority_cls_count // 2}) 
             """
 
@@ -135,19 +140,19 @@ def prepare_for_training(ds, batch_size=32, shuffle_buffer_size=1000):
 if __name__ == '__main__':
     model = siamese_model()
     model.compile(
-        optimizer=Adam(6e-5),
+        optimizer=SGD(lr=0.01, momentum=0.9),
         loss='binary_crossentropy'
     )
     
-    classes = [key for key in UNIVERSITIES['UTK']['R'].keys()]
-    baseline = 26.0
+    classes = list(chain.from_iterable([key for key in UNIVERSITIES['UTK']['R'].values()]))
+    baseline = 100/23
     N = 16000
     train_labeled_ds = get_pairs(total_pairs=N).map(
         process_path,
         num_parallel_calls=AUTOTUNE
         )
 
-    val_labeled_ds = get_pairs(total_pairs=N*1.2).map(
+    val_labeled_ds = get_pairs(total_pairs=N*0.6).map(
         process_path,
         num_parallel_calls=AUTOTUNE
         )
@@ -170,16 +175,15 @@ if __name__ == '__main__':
         return percent_correct
         
     time_start = time.time()
-
-    for i in range(1, 42000):
+    for i in range(1, 13000):
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
         print(f'Training Loss (iteration {i}): {loss}')
-        if i % 500 == 0:
+        if i % 400 == 0:
             print(f'Training Loss: {loss}')
-            val_acc = scoring(model, classes, 600)
+            val_acc = scoring(model, classes, 320)
             print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
             if val_acc > baseline:
-                model.save(PROJECT_DIR / 'models/UTK_siamese.h5')
-                model.save_weights(PROJECT_DIR / 'models/UTK_siamese_weights.h5')
+                model.save(str(PROJECT_DIR / 'models/UTK_siamese.h5'))
+                model.save_weights(str(PROJECT_DIR / 'models/UTK_siamese_weights.h5'))
                 baseline = val_acc
