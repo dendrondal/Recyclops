@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import confusion_matrix, plot_confusion_matrix
+from sklearn.metrics import confusion_matrix
 from pathlib import Path
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -89,6 +89,7 @@ def plot_confusion_matrix(university: str):
     labels = list(preds["labels"].keys())
     con_mat = confusion_matrix(df["class"], df["y_hat"], labels=labels)
     con_mat = con_mat / con_mat.max()
+    print(con_mat)
     figure = plt.figure(figsize=(10, 8))
     print(f"Plotting confusion matrix for {university}...")
     con_mat_df = pd.DataFrame(con_mat, index=labels, columns=labels)

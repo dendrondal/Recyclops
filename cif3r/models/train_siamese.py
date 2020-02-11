@@ -66,7 +66,7 @@ def siamese_model():
     return siamese_net
 
     
-def get_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=16000):
+def make_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=16000):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
@@ -102,7 +102,9 @@ def get_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=1
 
     while len(pairs) < total_pairs:
         _query()
-    
+    return pairs, labels
+
+def get_pairs(pairs, labels):
     print("Making dataset...")
     img1_tensor = tf.constant(pairs, shape=(len(pairs), 2))
     label_tensor = tf.constant(labels, shape=(len(labels), 1))
