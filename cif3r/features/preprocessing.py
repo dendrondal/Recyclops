@@ -45,7 +45,7 @@ def _calc_class_weights(df):
 
 def _verify_filenames(df):
     df['valid'] = df['filename'].apply(lambda x: os.path.exists(x))
-    df = df[df.valid == Truega ]
+    df = df[df.valid == True ]
     print(df.head())
     return df
 
