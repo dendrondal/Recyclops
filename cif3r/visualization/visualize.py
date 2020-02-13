@@ -11,8 +11,10 @@ import pandas as pd
 import sqlite3
 from PIL import Image
 from scipy import interpolate
+import matplotlib.image as mplimg
 
 from cif3r.data import recycling_guidelines
+from cif3r.models.predict_model import clf_factory
 from cif3r.models.train_model import macro_f1, macro_f1_loss
 from cif3r.features import preprocessing
 
@@ -96,6 +98,16 @@ def plot_roc(university:str):
     plt.title('ROC curve')
     plt.legend(loc='best')
     plt.savefig(VIZ_DIR / f"{university}_roc.png")
+
+def plot_image_predictions(university:str):
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(20,5))
+    for i, img, ax in zip(range(4), imgs.values(), axes):
+        img_array = mplimg.imread(img)
+        classes = [key for key in imgs.keys()]
+        y_hat = clf_factory(university, img_array, classes)
+        plt.imshow(img_array)
+    ax.set_title(f'Predicted Class: {y_hat}.\n Actual Class {classes[i]}')
+    plt.savefig('/home/dal/CIf3R/reports/img_predictions.png')
 
 
 def make_visualizations():

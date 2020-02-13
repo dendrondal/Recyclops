@@ -4,8 +4,6 @@ import numpy as np
 from pathlib import Path
 from app import models
 from cif3r.models.train_model import macro_f1, macro_f1_loss
-import matplotlib.pyplot as plt
-import matplotlib.image as mplimg
 
 custom_deps = {'macro_f1': macro_f1, 'macro_f1_loss':macro_f1_loss}
 
@@ -30,11 +28,3 @@ imgs = {
     
 }
 
-fig, axes = plt.subplots(ncols=4, figsize=(20,5))
-for i, img, ax in zip(range(4), imgs.values(), axes):
-    img_array = mplimg.imread(img)
-    classes = [key for key in imgs.keys()]
-    y_hat = clf_factory('UTK', img_array, classes)
-    ax.imshow(img_array)
-    ax.set_title(f'Predicted Class: {y_hat}.\n Actual Class {classes[i]}')
-plt.savefig('/home/dal/CIf3R/reports/img_predictions.png')
