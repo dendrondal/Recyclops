@@ -1,7 +1,22 @@
-Recyclables
+Recyclops
 ==============================
+## _Keeping an eye on what you recycle_
 
-Binary image classifier that determines whether an image is of a recyclable or compostable object
+Recyclops (formerly known as CIf3R) is an image classification model that classifies image of waste as recyclable or not based on university guidelines. Guidelines are stored as a python dictionary (see [here](https://github.com/dendrondal/CIf3R/blob/master/cif3r/data/recycling_guidelines.py) for examples), and a model can then be custom trained, or an existing model can be used. 
+
+### Installing this library
+Currently, this library can be cloned with git:
+
+`git clone https://https://github.com/dendrondal/CIf3R.git`
+
+In order to get it up and running, just cd into the repository and run:
+
+ ```
+ make create_environment
+ make requirements
+ ```
+
+ If you have `poetry` on your local machine, installing is as easy as `poetry install`.
 
 Project Organization
 ------------
