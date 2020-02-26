@@ -32,6 +32,11 @@ def main():
     return render_template("index.html")
 
 
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
+
+
 @app.route("/guidelines", methods=["GET", "POST"])
 def get_university_guidelines():
     if request.method == "GET":
