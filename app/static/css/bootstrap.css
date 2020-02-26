@@ -5562,6 +5562,9 @@ button.list-group-item-danger.active:focus {
   border-top: 1px solid #ddd;
   border-bottom-right-radius: 3px;
   border-bottom-left-radius: 3px;
+  position: relative;
+  height: 200px;
+  margin-top: -200px;
 }
 .panel > .list-group,
 .panel > .panel-collapse > .list-group {
@@ -6507,6 +6510,10 @@ button.close {
 }
 .carousel-caption .btn {
   text-shadow: none;
+}
+
+.fa-github:hover { /* round github icon*/
+  background: #343434;
 }
 @media screen and (min-width: 768px) {
   .carousel-control .glyphicon-chevron-left,

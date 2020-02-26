@@ -1,4 +1,4 @@
-.PHONY: clean data lint requirements sync_data_to_s3 sync_data_from_s3
+.PHONY: clean data train lint requirements sync_data_to_s3 sync_data_from_s3
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -45,6 +45,10 @@ ifeq (default,$(PROFILE))
 else
 	aws s3 sync data/ s3://$(BUCKET)/data/ --profile $(PROFILE)
 endif
+
+trained_model:
+	$(PYTHON_INTERPRETER) -m cif3r.models.trained_model --help
+
 
 ## Download Data from S3
 sync_data_from_s3:

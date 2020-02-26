@@ -40,7 +40,7 @@ def internal_error(error):
 @app.route("/guidelines", methods=["GET", "POST"])
 def get_university_guidelines():
     if request.method == "GET":
-        university = request.args.get("location", "university")
+        university = request.args.get("location", "university") 
         
     if request.method == "POST":
         university = request.args.get("location")

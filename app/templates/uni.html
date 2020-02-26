@@ -34,8 +34,8 @@
     <div class="text-dark container col-9">
       <!-- Jumbotron Header -->
       <header class=" jumbotron jumbotron-fluid my-0 p-4">
-        <h2 class="strong">Recyclable Classsification</h2><hr class="my-4">
-        <p class="lead">A computer vision app that helps you recycle the right things in the right bins for your University</p>
+        <h2 class="strong">Recyclops</h2><a href="{{ url_for('main')}}"><div class="home-image"><i class="fa fa-home"></i></div></a></li>
+        <hr class="my-4">
       </header>
       <!-- Page Features -->
       <div class="mt-5 row text-center">
@@ -44,7 +44,7 @@
             <img src="{{ url_for('video_feed') }}">
               <div class="card-body">
                   <div class='container'>
-                    {{ result }}
+                    <font size="18">{{ result }}</font>
                     <form action = "{{ request.url }}" method="POST" role="form">
                     <button type="submit" class="mt-4 mb-1 btn btn-success">Predict Class</button></form>
               </div>
@@ -54,4 +54,6 @@
           </div>
         </div>
       </div>
-    
+      <div class="panel-footer">
+        <h6>Copyright 2020, Jon Steven Dal Williams</h6>
+      </div>  
