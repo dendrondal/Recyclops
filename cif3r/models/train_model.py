@@ -1,213 +1,58 @@
-from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
-from datetime import datetime
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Input, Dense, Dropout, Flatten, GlobalAveragePooling2D, Conv2D, MaxPooling2D
-from tensorflow.keras.models import Model
-from tensorflow.keras import optimizers
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
-from pathlib import Path
-import sqlite3
-import click
+from dataset import Recyclables
+from sampler import PrototypicalBatchSampler
+from protonet import ProtoNet
+from proto_loss import prototypical_loss as loss_fn
+from tqdm import tqdm
+import torch
 import numpy as np
-import random
-from pathlib import Path
-import pandas as pd
-from cif3r.features.preprocessing import datagen, binary_datagen, sample_all
-from cif3r.models.custom_metrics import macro_f1, macro_f1_loss
-from cif3r.data.recycling_guidelines import UNIVERSITIES
-from cif3r.visualization.visualize import plot_confusion_matrix
-from app.models import Models, ClassMapping
 
 
-def ad_hoc_cnn(n_labels:int):
-    """Custom CNN for non-transfer learning"""
-    inputs = Input(shape=(400,400,1))
-    x = Conv2D(32, (5,5), activation='relu')(inputs)
-    x = MaxPooling2D((5,5))(x)
-    x = Conv2D(64, (5,5), activation='relu')(x)
-    x = Conv2D(128, (5,5), activation='relu')(x)
-    x = MaxPooling2D((5,5))(x)
-    x = Conv2D(256, (5,5), activation='relu')(x)
-    x = MaxPooling2D((2,2))(x)
-    x = Conv2D(64, (2,2), activation='relu')(x)
-    x = Conv2D(32, (2,2), activation='relu')(x)
-    x = MaxPooling2D((2,2))(x)
-    x = Dense(1024, activation='relu')(x)
-    x = Dropout(0.3)(x)
-    x = Dense(2048, activation='tanh')(x)
-    x = Dropout(0.5)(x)
-    predictions = Dense(n_labels, activation="softmax", name="output")(x)
-    model = Model(inputs=inputs, outputs=predictions)
-    return model
-    
+def init_sampler(labels):
+    return PrototypicalBatchSampler(labels=labels,
+    classes_per_it=5, num_samples=5, iterations=100)
 
-def load_base_model(depth: int, n_labels: int):
-    """Loads in MobileNetV2 pre-trained on image net. Prevents layers until
-    desired depth from being trained."""
-    base_model = MobileNetV2(include_top=False)
-    for layer in base_model.layers[:depth]:
-        layer.trainable = False
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    x = Flatten()(x)
-    x = Dense(512, activation='relu')(x)
-    x = Dropout(0.3)(x)
-    x = Dense(1024, activation='tanh')(x)
-    x = Dropout(0.5)(x)
-    predictions = Dense(n_labels, activation="softmax", name="output")(x)
-    model = Model(inputs=base_model.inputs, outputs=predictions)
+
+def init_dataloader():
+    dataset = Recyclables()
+    sampler = init_sampler(labels=dataset.labels)
+    loader = torch.utils.data.DataLoader(dataset, batch_sampler=sampler)
+    return loader
+
+
+def init_protonet():
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    model = ProtoNet().to(device)
     return model
 
 
-def checkpoint(filename):
-    return ModelCheckpoint(
-        str(filename),
-        monitor="val_loss",
-        verbose=1,
-        save_best_only=True,
-        save_weights_only=False,
-        mode="auto",
-        period=1,
-    )
+def init_optim(model):
+    return torch.optim.Adam(params=model.parameters(), lr=0.001)
 
 
-def write_model_data(university, class_mapping_dict):
-    """Creates model metadata to be consumed by the frontend in choosing a prediction
-    model and mapping output to classes"""
+def train(tr_dataloader, model, optim):
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    train_loss = []
+    train_acc = []
+    val_loss = []
+    val_acc = []
+    best_acc = 0
 
-    db_path = Path(__file__).resolve().parents[2] / "data/interim/metadata.sqlite3"
-    conn = sqlite3.connect(str(db_path))
-    cur = conn.cursor()
-
-    insert = """INSERT INTO class_mapping 
-    (university, label, key_index)
-    VALUES (?,?,?)
-    """
-    for key, val in class_mapping_dict.items():
-        cur.execute(insert, (university, key, val))
-    conn.commit()
-
-
-def early():
-    return EarlyStopping(
-        monitor="val_loss", min_delta=1e-3, patience=5, verbose=1, mode="auto"
-    )
-
-
-def tensorboard():
-    return TensorBoard(
-        log_dir=Path(__file__).resolve().parents[2] / "reports",
-        histogram_freq=0,
-        write_graph=True,
-        write_images=False,
-    )
+    for epoch in range(100):
+        tr_iter = iter(tr_dataloader)
+        model.train()
+        for batch in tqdm(tr_iter):
+            optim.zero_grad()
+            x, y = batch
+            x, y = x.to(device), y.to(device)
+            model_output = model(x)
+            loss, acc = loss_fn(model_output, target=y,
+                                n_support=3)
+            loss.backward()
+            optim.step()
+            train_loss.append(loss.item())
+            train_acc.append(acc.item())
+        print(f'Loss: {np.mean(train_loss[-5:])}, Accuracy: {np.mean(train_acc[-5:])}')
 
 
-def get_optimizer():
-    """Helper function to map CLI argument to Keras method"""
-    options = {"adam": optimizers.Adam, "rmsprop": optimizers.RMSprop, "sgd": optimizers.SGD, "nadam":optimizers.Nadam}
-    return options
-
-
-@click.command()
-@click.argument(
-    "university",
-    required=True,
-    type=click.Choice([key for key in UNIVERSITIES.keys()]),
-)
-@click.option(
-    "--optimizer",
-    default="rmsprop",
-    type=click.Choice([key for key in get_optimizer()]),
-)
-@click.option("--lr", help="Learning rate passed to optimizer")
-@click.option("--sampling", help="Whether to over- or under-sample training set")
-@click.option("--batch_size", default=32)
-@click.option(
-    "--trainable_layers",
-    default=1,
-    help="How many layers at the end of MobileNet are trainable",
-)
-@click.option(
-    "--loss",
-    default="categorical_crossentropy",
-    help="Loss metric used for model training. Valid options are the standard keras.optimizers, or macro_f1",
-)
-@click.option(
-    "--plot_confusion",
-    default=True,
-    help="Whether to plot confusion matrix after training",
-)
-def train_model(
-    university, optimizer, lr, sampling, batch_size, trainable_layers, loss, plot_confusion
-):
-    """Command line tool for model training. Loads image URIs from SQL metadata, 
-    creates an augmented image generator, and loads in MobileNetV2. Trains over 300 epochs
-    with early stopping condition based on validation loss (80-20 train-val split)"""
-
-    def _get_all_subcls():
-        all_subcls = []
-        for cat in UNIVERSITIES[university].values():
-            for stream in cat.values():
-                for subcls in stream:
-                    all_subcls.append(subcls)
-        print(f'Total number of subclasses: {len(all_subcls)}')
-        return all_subcls
-
-    df = datagen(university, balance_method=sampling)
-    
-    model = load_base_model( -int(trainable_layers), len([key for key in UNIVERSITIES[university]['R'].keys()])+1)
-    #model = ad_hoc_cnn(len([key for key in UNIVERSITIES[university]['R'].keys])+1)
-
-    if lr:
-        optimizer = get_optimizer()[optimizer](lr=float(lr))
-    if loss == "macro_f1" or "marco_f1_loss":
-        loss = macro_f1_loss
-    else:
-        optimizer = get_optimizer()[optimizer]()
-    project_dir = Path(__file__).resolve().parents[2]
-    model.compile(
-        optimizer=optimizer,
-        loss=loss,
-        metrics=[macro_f1, "accuracy"],
-    )
-    print(model.summary())
-
-    imagegen = ImageDataGenerator(
-        validation_split=0.3,
-        rotation_range=40,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        rescale=1./255,
-        fill_mode="nearest",
-    )
-    
-    train = imagegen.flow_from_dataframe(df, batch_size=batch_size, target_size=(224,224), subset="training")
-    validation = imagegen.flow_from_dataframe(
-        df, batch_size=batch_size, target_size=(224,224), subset="validation"
-    )
-
-    model.fit(
-        train,
-        steps_per_epoch=train.samples // batch_size,
-        epochs=300,
-        validation_data=validation,
-        validation_steps=validation.samples // batch_size,
-        callbacks=[
-            checkpoint((project_dir / "models" / f"{university}_full_cls_prediction.h5")),
-            early(),
-            tensorboard(),
-        ],
-    )
-    write_model_data(university, train.class_indices)
-    
-    if plot_confusion:
-        plot_confusion_matrix(university)
-
-
-if __name__ == "__main__":
-    train_model()
+model = init_protonet()
+train(init_dataloader(), model, init_optim(model=model))

@@ -1,10 +1,12 @@
 import torch.utils.data as data
 from pathlib import Path
 from PIL import Image
-from cif3r.data.recycling_guidelines import UNIVERSITIES
 from itertools import chain
+from sklearn import preprocessing
 import torch
 from torchvision import transforms
+import pickle
+import sqlite3
 
 class Recyclables(data.Dataset):
     def __init__(
@@ -14,7 +16,7 @@ class Recyclables(data.Dataset):
         total_imgs:int=16000
         ):
 
-        super(BatchSampler, self).__init__()
+        super(Recyclables, self).__init__()
         self.university = university
         self.minority_cls_count = minority_cls_count
         self.total_imgs = total_imgs
@@ -23,21 +25,33 @@ class Recyclables(data.Dataset):
         conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
         self.cur = conn.cursor()
         # Get all recycling streams
+        dict_path = data_dir.resolve().parents[0] / 'external/{}.pickle'.format(university)
+        with open(dict_path, 'rb') as f:
+            uni = pickle.load(f)
         self.streams = list(
             chain.from_iterable(
-                [key for key in UNIVERSITIES[university]['R'].values()]
+                [key for key in uni['R'].values()]
                 )
             )
+        self.le = preprocessing.LabelEncoder().fit(self.streams)
+        self.images, labels = self._query()
+        self.streams = self.le.classes_
+        self.labels = self.le.transform(labels)
+    
 
-        self.images, self.labels = _query() 
-        self.transform = transforms.Compose([
+    @staticmethod
+    def transform(path):
+        img = Image.open(path).convert('RGB')
+        operations = transforms.Compose([
             transforms.Resize(84),
             transforms.CenterCrop(84),
             transforms.ToTensor(),
-            trasforms.Normalize(mean=[0.485, 0.485, 0.406],
+            transforms.Normalize(mean=[0.485, 0.485, 0.406],
                                 std=[0.229, 0.224, 0.225])
         ])
-  
+        return operations(img)
+
+
     def _query(self):
         images, labels = [], []
         for subclass in self.streams:
@@ -66,6 +80,6 @@ class Recyclables(data.Dataset):
         return self.cur.execute(query)
 
     def __getitem__(self, i):
-        img, label = self.images[i], self.labels[i]
-        image = self.transform(Image.open(img).convert('RGB'))
-        return img, label
+        imgs, labels = self.images[i], self.labels[i]
+        imgs = self.transform(imgs)
+        return imgs, labels
