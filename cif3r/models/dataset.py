@@ -9,17 +9,11 @@ import pickle
 import sqlite3
 
 class Recyclables(data.Dataset):
-    def __init__(
-        self,
-        university:str='UTK', 
-        minority_cls_count:int=10, 
-        total_imgs:int=16000
-        ):
+    def __init__(self, university, minority_cls_count):
 
         super(Recyclables, self).__init__()
         self.university = university
         self.minority_cls_count = minority_cls_count
-        self.total_imgs = total_imgs
         # Datbase connection
         data_dir = Path(__file__).resolve().parents[2] / "data/interim"
         conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
@@ -35,7 +29,6 @@ class Recyclables(data.Dataset):
             )
         self.le = preprocessing.LabelEncoder().fit(self.streams)
         self.images, labels = self._query()
-        self.streams = self.le.classes_
         self.labels = self.le.transform(labels)
     
 
