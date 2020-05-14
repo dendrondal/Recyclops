@@ -1,5 +1,13 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv2D, Dense, Dropout, MaxPooling2D, Flatten, Lambda
+from tensorflow.keras.layers import (
+    Input,
+    Conv2D,
+    Dense,
+    Dropout,
+    MaxPooling2D,
+    Flatten,
+    Lambda,
+)
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.regularizers import l2
@@ -25,56 +33,94 @@ def siamese_model():
     W_init = RandomNormal(stddev=1e-2, seed=42)
     b_init = RandomNormal(mean=0.5, stddev=1e-2, seed=42)
     input_shape = (105, 105, 3)
-    
+
     img_input = Input(shape=input_shape)
     left_input = Input(shape=input_shape)
     right_input = Input(shape=input_shape)
 
-    x = Conv2D(64,(10,10),activation='relu',input_shape=input_shape,
-                    kernel_initializer=W_init,kernel_regularizer=l2(2e-4))(img_input)
-    x = MaxPooling2D()(x)
-    x = Conv2D(128,(7,7),activation='relu',
-                    kernel_regularizer=l2(2e-4),kernel_initializer=W_init,bias_initializer=b_init)(x)
-    x = MaxPooling2D()(x)
-    x = Conv2D(128,(4,4),activation='relu',kernel_initializer=W_init,kernel_regularizer=l2(2e-4),bias_initializer=b_init)(x)
+    x = Conv2D(
+        64,
+        (10, 10),
+        activation="relu",
+        input_shape=input_shape,
+        kernel_initializer=W_init,
+        kernel_regularizer=l2(2e-4),
+    )(img_input)
     x = MaxPooling2D()(x)
     x = Conv2D(
-        256,(4,4),activation='relu',kernel_initializer=W_init, 
-        kernel_regularizer=l2(2e-4),bias_initializer=b_init)(x)
+        128,
+        (7, 7),
+        activation="relu",
+        kernel_regularizer=l2(2e-4),
+        kernel_initializer=W_init,
+        bias_initializer=b_init,
+    )(x)
+    x = MaxPooling2D()(x)
+    x = Conv2D(
+        128,
+        (4, 4),
+        activation="relu",
+        kernel_initializer=W_init,
+        kernel_regularizer=l2(2e-4),
+        bias_initializer=b_init,
+    )(x)
+    x = MaxPooling2D()(x)
+    x = Conv2D(
+        256,
+        (4, 4),
+        activation="relu",
+        kernel_initializer=W_init,
+        kernel_regularizer=l2(2e-4),
+        bias_initializer=b_init,
+    )(x)
     x = Flatten()(x)
-    x = Dense(2048,  kernel_regularizer=l2(1e-3), 
-        kernel_initializer=W_init,bias_initializer=b_init, activation='tanh')(x)
+    x = Dense(
+        2048,
+        kernel_regularizer=l2(1e-3),
+        kernel_initializer=W_init,
+        bias_initializer=b_init,
+        activation="tanh",
+    )(x)
     x = Dropout(0.5)(x)
     out = Dense(
-        4096, activation="sigmoid", kernel_regularizer=l2(1e-3), 
-        kernel_initializer=W_init,bias_initializer=b_init)(x)
+        4096,
+        activation="sigmoid",
+        kernel_regularizer=l2(1e-3),
+        kernel_initializer=W_init,
+        bias_initializer=b_init,
+    )(x)
 
     twin = Model(img_input, out)
-    
-    #encode each of the two inputs into a vector with the convnet
+
+    # encode each of the two inputs into a vector with the convnet
     encoded_l = twin(left_input)
     encoded_r = twin(right_input)
 
-    #merge two encoded inputs with the l1 distance between them
+    # merge two encoded inputs with the l1 distance between them
     L1_layer = Lambda(lambda x: tf.math.abs(x[0] - x[1]))
     L1_distance = L1_layer([encoded_l, encoded_r])
 
-    prediction = Dense(1, activation='sigmoid', bias_initializer=b_init)(L1_distance)
+    prediction = Dense(1, activation="sigmoid", bias_initializer=b_init)(L1_distance)
 
     siamese_net = Model(inputs=[left_input, right_input], outputs=prediction)
 
     return siamese_net
 
-    
-def make_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=16000):
+
+def make_pairs(
+    university: str = "UTK", minority_cls_count: int = 24, total_pairs: int = 16000
+):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     cur = conn.cursor()
 
     pairs, labels = [], []
+
     def _query():
 
-        streams = list(chain.from_iterable([key for key in UNIVERSITIES[university]['R'].values()]))
+        streams = list(
+            chain.from_iterable([key for key in UNIVERSITIES[university]["R"].values()])
+        )
         for subclass in streams:
             print(f"Starting query for {subclass}")
             query = f"""
@@ -104,6 +150,7 @@ def make_pairs(university:str='UTK', minority_cls_count:int=24, total_pairs:int=
         _query()
     return pairs, labels
 
+
 def get_pairs(pairs, labels):
     print("Making dataset...")
     img1_tensor = tf.constant(pairs, shape=(len(pairs), 2))
@@ -125,39 +172,36 @@ def process_path(imgs, label):
 
 def prepare_for_training(ds, batch_size=32, shuffle_buffer_size=1000):
 
-  ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+    ds = ds.shuffle(buffer_size=shuffle_buffer_size)
 
-  # Repeat forever
-  ds = ds.repeat()
+    # Repeat forever
+    ds = ds.repeat()
 
-  ds = ds.batch(batch_size)
+    ds = ds.batch(batch_size)
 
-  # `prefetch` lets the dataset fetch batches in the background while the model
-  # is training.
-  ds = ds.prefetch(buffer_size=AUTOTUNE)
+    # `prefetch` lets the dataset fetch batches in the background while the model
+    # is training.
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
 
-  return ds
+    return ds
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     model = siamese_model()
-    model.compile(
-        optimizer=SGD(lr=0.01, momentum=0.9),
-        loss='binary_crossentropy'
+    model.compile(optimizer=SGD(lr=0.01, momentum=0.9), loss="binary_crossentropy")
+
+    classes = list(
+        chain.from_iterable([key for key in UNIVERSITIES["UTK"]["R"].values()])
     )
-    
-    classes = list(chain.from_iterable([key for key in UNIVERSITIES['UTK']['R'].values()]))
-    baseline = 100/23
+    baseline = 100 / 23
     N = 16000
     train_labeled_ds = get_pairs(total_pairs=N).map(
-        process_path,
-        num_parallel_calls=AUTOTUNE
-        )
+        process_path, num_parallel_calls=AUTOTUNE
+    )
 
-    val_labeled_ds = get_pairs(total_pairs=N*0.6).map(
-        process_path,
-        num_parallel_calls=AUTOTUNE
-        )
+    val_labeled_ds = get_pairs(total_pairs=N * 0.6).map(
+        process_path, num_parallel_calls=AUTOTUNE
+    )
     for img1, img2, label in train_labeled_ds.take(1):
         print(img1.numpy().shape)
         print(img2.numpy().shape)
@@ -169,23 +213,25 @@ if __name__ == '__main__':
     def scoring(model, classes, N):
         n_correct = 0
         for i in tqdm(range(N)):
-            *inputs, targets = next(iter(val_ds)) 
+            *inputs, targets = next(iter(val_ds))
             probs = model.predict(inputs)
             if np.argmax(probs) == np.argmax(targets.numpy()):
                 n_correct += 1
-        percent_correct = (100*n_correct/N)
+        percent_correct = 100 * n_correct / N
         return percent_correct
-        
+
     time_start = time.time()
     for i in range(1, 13000):
         *inputs, targets = next(iter(train_ds))
         loss = model.train_on_batch(inputs, targets)
-        print(f'Training Loss (iteration {i}): {loss}')
+        print(f"Training Loss (iteration {i}): {loss}")
         if i % 400 == 0:
-            print(f'Training Loss: {loss}')
+            print(f"Training Loss: {loss}")
             val_acc = scoring(model, classes, 320)
-            print(f'-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}')
+            print(
+                f"-----Validation Accuracy after {(time.time() - time_start)/60} min: {val_acc}"
+            )
             if val_acc > baseline:
-                model.save(str(PROJECT_DIR / 'models/UTK_siamese.h5'))
-                model.save_weights(str(PROJECT_DIR / 'models/UTK_siamese_weights.h5'))
+                model.save(str(PROJECT_DIR / "models/UTK_siamese.h5"))
+                model.save_weights(str(PROJECT_DIR / "models/UTK_siamese_weights.h5"))
                 baseline = val_acc

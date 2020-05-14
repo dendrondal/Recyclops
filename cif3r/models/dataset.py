@@ -4,46 +4,47 @@ from PIL import Image
 from itertools import chain
 from sklearn import preprocessing
 import torch
+import random
 from torchvision import transforms
 import pickle
 import sqlite3
 
+
 class Recyclables(data.Dataset):
-    def __init__(self, university, minority_cls_count):
+    def __init__(self, university, shots):
 
         super(Recyclables, self).__init__()
         self.university = university
-        self.minority_cls_count = minority_cls_count
+        self.shots = shots
         # Datbase connection
         data_dir = Path(__file__).resolve().parents[2] / "data/interim"
         conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
         self.cur = conn.cursor()
         # Get all recycling streams
-        dict_path = data_dir.resolve().parents[0] / 'external/{}.pickle'.format(university)
-        with open(dict_path, 'rb') as f:
+        dict_path = data_dir.resolve().parents[0] / "external/{}.pickle".format(
+            university
+        )
+        with open(dict_path, "rb") as f:
             uni = pickle.load(f)
-        self.streams = list(
-            chain.from_iterable(
-                [key for key in uni['R'].values()]
-                )
-            )
-        self.le = preprocessing.LabelEncoder().fit(self.streams)
+        self.streams = list(chain.from_iterable([key for key in uni["R"].values()]))
         self.images, labels = self._query()
+        self.le = preprocessing.LabelEncoder().fit(self.streams)
         self.labels = self.le.transform(labels)
-    
 
     @staticmethod
     def transform(path):
-        img = Image.open(path).convert('RGB')
-        operations = transforms.Compose([
-            transforms.Resize(84),
-            transforms.CenterCrop(84),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.485, 0.406],
-                                std=[0.229, 0.224, 0.225])
-        ])
+        img = Image.open(path).convert("RGB")
+        operations = transforms.Compose(
+            [
+                transforms.Resize(84),
+                transforms.CenterCrop(84),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.485, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
         return operations(img)
-
 
     def _query(self):
         images, labels = [], []
@@ -59,7 +60,7 @@ class Recyclables(data.Dataset):
             ORDER BY 
                 Random() 
             LIMIT 
-                {self.minority_cls_count}
+                {self.shots}
             """
 
             for name, label in self.cur.execute(query):

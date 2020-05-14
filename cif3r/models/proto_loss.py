@@ -4,9 +4,10 @@ from torch.nn.modules import Module
 
 
 class PrototypicalLoss(Module):
-    '''
+    """
     Loss class deriving from Module for the prototypical loss function defined below
-    '''
+    """
+
     def __init__(self, n_support):
         super(PrototypicalLoss, self).__init__()
         self.n_support = n_support
@@ -16,9 +17,9 @@ class PrototypicalLoss(Module):
 
 
 def euclidean_dist(x, y):
-    '''
+    """
     Compute euclidean distance between two tensors
-    '''
+    """
     # x: N x D
     # y: M x D
     n = x.size(0)
@@ -33,7 +34,7 @@ def euclidean_dist(x, y):
 
 
 def prototypical_loss(input, target, n_support):
-    '''
+    """
     Inspired by https://github.com/jakesnell/prototypical-networks/blob/master/protonets/models/few_shot.py
     Compute the barycentres by averaging the features of n_support
     samples for each class in target, computes then the distances from each
@@ -46,9 +47,9 @@ def prototypical_loss(input, target, n_support):
     - target: ground truth for the above batch of samples
     - n_support: number of samples to keep in account when computing
       barycentres, for each one of the current classes
-    '''
-    target_cpu = target.to('cpu')
-    input_cpu = input.to('cpu')
+    """
+    target_cpu = target.to("cpu")
+    input_cpu = input.to("cpu")
 
     def supp_idxs(c):
         # FIXME when torch will support where as np
@@ -65,9 +66,11 @@ def prototypical_loss(input, target, n_support):
 
     prototypes = torch.stack([input_cpu[idx_list].mean(0) for idx_list in support_idxs])
     # FIXME when torch will support where as np
-    query_idxs = torch.stack(list(map(lambda c: target_cpu.eq(c).nonzero()[n_support:], classes))).view(-1)
+    query_idxs = torch.stack(
+        list(map(lambda c: target_cpu.eq(c).nonzero()[n_support:], classes))
+    ).view(-1)
 
-    query_samples = input.to('cpu')[query_idxs]
+    query_samples = input.to("cpu")[query_idxs]
     dists = euclidean_dist(query_samples, prototypes)
 
     log_p_y = F.log_softmax(-dists, dim=1).view(n_classes, n_query, -1)
@@ -80,4 +83,4 @@ def prototypical_loss(input, target, n_support):
     _, y_hat = log_p_y.max(2)
     acc_val = y_hat.eq(target_inds.squeeze()).float().mean()
 
-    return loss_val,  acc_val
+    return loss_val, acc_val
