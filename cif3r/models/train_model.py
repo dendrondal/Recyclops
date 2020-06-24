@@ -2,6 +2,7 @@ from dataset import Recyclables
 from sampler import PrototypicalBatchSampler
 from protonet import ProtoNet
 from proto_loss import prototypical_loss as loss_fn
+from learned_features import te
 from parser_util import get_parser
 from tqdm import tqdm
 from pathlib import Path
@@ -72,7 +73,7 @@ def init_lr_scheduler(opt, optim):
     )
 
 
-def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
+def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None, board):
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     train_loss = []
     train_acc = []
@@ -103,6 +104,8 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
         avg_loss = np.mean(train_loss[-opt.iterations :])
         avg_acc = np.mean(train_acc[-opt.iterations :])
         print(f"Loss: {avg_loss}, Accuracy: {avg_acc}")
+        board.writer.add_scalar('training loss', avg_loss, epoch)
+        board.writer.add_scalar('training accuracy', avg_acc, epoch)
         lr_scheduler.step()
 
         if val_dataloader is None:
@@ -110,6 +113,8 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
 
         val_iter = iter(val_dataloader)
         model.eval()
+        class_probs = []
+        class_preds = []
         for batch in val_iter:
             x, y = batch
             x, y = x.to(device), y.to(device)
@@ -117,8 +122,19 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
             loss, acc = loss_fn(model_output, target=y, n_support=opt.num_support_val)
             val_loss.append(loss.item())
             val_acc.append(acc.item())
+            #Callbacks for PR curve
+            class_probs_batch = [F.softmax(el, dim=0) for el in model_output]
+            _, class_preds_batch = torch.max(output, 1)
+            class_probs.append(class_probs_batch)
+            class_preds.append(class_preds_batch)
+        
+        test_probs = torch.cat([torch.stack(batch) for batch in class_probs])
+        test_preds = torch.cat(class_preds)
+        board.plot_pr_curves(test_probs, test_preds)
         avg_loss = np.mean(val_loss[-opt.iterations :])
         avg_acc = np.mean(val_acc[-opt.iterations :])
+        board.writer.add_scalar('val loss', avg_loss, epoch)
+        board.writer.add_scalar('val accuracy', avg_acc, epoch)
         postfix = " (Best)" if avg_acc >= best_acc else " (Best: {})".format(best_acc)
         print("Avg Val Loss: {}, Avg Val Acc: {}{}".format(avg_loss, avg_acc, postfix))
         if avg_acc >= best_acc:
