@@ -63,9 +63,6 @@ def main():
             y_hat = classes[index.item() // 64]
             st.write(y_hat)
 
-    
-
-
 
 if __name__ == '__main__':
     main()
