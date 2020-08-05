@@ -1,9 +1,12 @@
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import torchvision
 import torch
 import torch.nn.functional as F
 import numpy as np
+from pathlib import Path
 
 
 class TensorBoard:
@@ -37,10 +40,8 @@ class TensorBoard:
         perm = torch.randperm(len(images))
         imgs, lbls = images[perm][:n], labels[perm][:n]
         print(len(imgs), len(lbls))
-        features = images.view(-1, 28*28)
-        self.writer.add_embedding(features, 
-                            metadata=lbls, 
-                            label_img=imgs.unsqueeze(1))
+        features = images.view(-1, 28 * 28)
+        self.writer.add_embedding(features, metadata=lbls, label_img=imgs.unsqueeze(1))
         self.writer.close()
 
     def imgs_to_probs(self, images):
@@ -51,27 +52,91 @@ class TensorBoard:
 
     def plot_class_preds(self):
         images, labels = iter(self.loader).next()
-        preds, probs = self. imgs_to_probs(images)
+        preds, probs = self.imgs_to_probs(images)
         print(len(labels))
-        fig = plt.figure(figsize=(12,48))
+        fig = plt.figure(figsize=(12, 48))
         for idx in np.arange(4):
-            ax = fig.add_subplot(1, 4, idx+1, xticks=[], yticks=[])
+            ax = fig.add_subplot(1, 4, idx + 1, xticks=[], yticks=[])
             self._imshow(images[idx])
-            ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
-                self.classes[labels[idx]],
-                probs[idx] * 100.0,
-                self.classes[labels[idx]]),
-                        color=("green" if preds[idx]==labels[idx].item() else "red"))
-        self.writer.add_figure('predictions vs. actuals', fig)
+            ax.set_title(
+                "{0}, {1:.1f}%\n(label: {2})".format(
+                    self.classes[labels[idx]],
+                    probs[idx] * 100.0,
+                    self.classes[labels[idx]],
+                ),
+                color=("green" if preds[idx] == labels[idx].item() else "red"),
+            )
+        self.writer.add_figure("predictions vs. actuals", fig)
 
-
-    def add_pr_curve_tensorboard(self, class_index, test_probs, test_preds, global_step=0):
+    def add_pr_curve_tensorboard(
+        self, class_index, test_probs, test_preds, global_step=0
+    ):
         preds = test_preds == class_index
         probs = test_probs[:, class_index]
-        self.writer.add_pr_curve(self.classes[class_index],
-        preds, probs, global_step=global_step)
+        self.writer.add_pr_curve(
+            self.classes[class_index], preds, probs, global_step=global_step
+        )
         self.writer.close()
 
     def plot_pr_curves(self, probs, preds):
         for i in range(len(self.classes)):
             self.add_pr_curve_tensorboard(i, probs, preds)
+
+
+def load_embeddings():
+    embeddings = []
+    data_dir = Path(__file__).resolve().parents[2] / 'data/final'
+    for file in data_dir.glob('*.pt'):
+        embeddings.append(torch.load(file))
+    return embeddings
+
+def embeddings_to_numpy(embedding_list):
+    with torch.no_grad():
+        X = [list(d.values())[0].detach().numpy().reshape(1600,) for d in embedding_list]
+        y = [str(list(d.keys())[0]) for d in embedding_list]
+    return X, y
+
+
+def pca(X):
+    clf = PCA(n_components = 0.95)
+    clf.fit(X)
+    return clf.transform(X)
+
+
+def tsne(X, y):
+    tsne_obj = TSNE(
+        n_components=2,
+        init="pca",
+        random_state=101,
+        method="barnes_hut",
+        n_iter=500,
+        verbose=2,
+        n_jobs=-1,
+    )
+    features = tsne_obj.fit_transform(X)
+
+    plt.figure(figsize=(10, 10))
+    cmap = plt.cm.rainbow(np.linspace(0, 1, 50))
+    for i, (color, stream) in enumerate(zip(cmap, y)):
+        plt.scatter(
+            features[i, 0],
+            features[i, 1],
+            marker = 'o',
+            color=color,
+            linewidth="1",
+            alpha=0.8,
+            label=stream,
+        )
+    plt.legend(loc="best")
+    plt.title("t-SNE on ProtoNet learned features")
+    plt.savefig("/home/dal/CIf3R/reports/figures/protonet_tsne.png")
+
+
+if __name__ == '__main__':
+    X, y = embeddings_to_numpy(load_embeddings())
+    lengths = [lst.shape for lst in X]
+    print(lengths)
+    X = pca(X)
+    print(X[0].shape)
+    tsne(X, y)
+
