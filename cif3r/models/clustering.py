@@ -38,14 +38,15 @@ def filter_by_class(df, subcls: str):
 
 def feedforward(model, image_vector):
     """Creates 1x1600 embedding of image using saved model."""
-    return model.forward(image_vector)
+    with torch.no_grad():
+        return model.forward(image_vector)
 
 
 def stacking(series):
     """Takes a dataframe with calculated embeddings, and
     creates a stacked tensor of the predictions so the
     centroid can be calculated."""
-    arr = np.stack(np.array([var.detach().numpy() for var in series.values]))
+    arr = torch.stack([var.detach() for var in series.values])
     return torch.from_numpy(arr)
 
 
@@ -53,8 +54,7 @@ def calculate_centroid(support_vecs: torch.Tensor):
     """
     Calculates centroid for a given class.
     """
-    print([vec.squeeze(1) for vec in support_vecs][0])
-    centroid = torch.stack([vec.squeeze(1).mean(0) for vec in support_vecs])
+    centroid = torch.mean(torch.stack([vec.detach() for vec in support_vecs]), dim=0)
     return centroid
 
 
@@ -76,11 +76,11 @@ def main(university):
         class_paths["embedding"] = class_paths["hash"].apply(
             lambda x: feedforward(model, transform(x).unsqueeze_(0))
         )
-        output[stream] = calculate_centroid(class_paths['embedding'].values)
-
-    torch.save(
-        output, project_dir / "data" / "final" / f"{university}_centroids.pt",
-    )
+        output = calculate_centroid(class_paths['embedding'].values)
+        print(output.shape)
+        torch.save(
+            {stream: output}, project_dir / "data" / "final" / f"{stream}_centroids.pt",
+        )
 
 
 if __name__ == "__main__":
