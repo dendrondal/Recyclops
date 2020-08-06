@@ -14,6 +14,7 @@ from torchsummary import summary
 import pandas as pd
 from learned_features import load_embeddings, embeddings_to_numpy
 
+
 @st.cache
 def load_model(university):
     model_dir = Path(__file__).resolve().parents[2] / "models"
@@ -64,7 +65,7 @@ def main():
             X_supp, y = embeddings_to_numpy(load_embeddings())
             X_supp = pca.fit_transform(X_supp)
             X_query = pca.transform(X_query)
-            knn = KNeighborsClassifier(n_neighbors=5, weights='distance',  n_jobs=-1)
+            knn = KNeighborsClassifier(n_neighbors=5, weights="distance", n_jobs=-1)
             y_encoded = [i for i in range(len(y))]
             knn.fit(X_supp, y_encoded)
             st.write(y[knn.predict(X_query)[0]])

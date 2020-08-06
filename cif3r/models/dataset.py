@@ -31,7 +31,6 @@ class Recyclables(data.Dataset):
         self.le = preprocessing.LabelEncoder().fit(self.streams)
         self.labels = self.le.transform(labels)
 
-
     def _query(self):
         images, labels = [], []
         for subclass in self.streams:
@@ -72,9 +71,7 @@ def transform(path):
             transforms.Resize(84),
             transforms.CenterCrop(84),
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.485, 0.406], std=[0.229, 0.224, 0.225]
-            ),
+            transforms.Normalize(mean=[0.485, 0.485, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
     return operations(img)

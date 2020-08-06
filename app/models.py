@@ -12,5 +12,3 @@ class ClassMapping(db.Model):
     university = db.Column(db.String, primary_key=True)
     label = db.Column(db.String)
     key_index = db.Column(db.Integer)
-
-

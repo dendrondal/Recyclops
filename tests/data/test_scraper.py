@@ -20,6 +20,7 @@ def test_fetch_image_urls():
     assert type(result[0]) == str
 """
 
+
 def test_hash_urls():
     url_list = ["http://google.com", "http://facebook.com"]
     result = hash_urls(url_list)
@@ -63,6 +64,7 @@ def test_dirfinder():
     dirs = [str(Path(__file__).parents[1])]
     result = dirfinder(dirs)
     assert len(result) == 5
+
 
 def test_pre_prediction_positive():
     prediction_img = Image.open(

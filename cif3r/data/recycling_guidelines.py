@@ -42,7 +42,7 @@ TRASH_UTK_GUIDELINES = {
         "three ring binders",
         "cardboard food container",
         "packing peanuts",
-        "styrofoam"
+        "styrofoam",
     ],
     "cans": ["aerosol spray cans", "aluminum foil", "aluminum tray", "pie tin"],
     "plastic": [
@@ -108,12 +108,7 @@ RECYCLABLES_PENN_STATE = {
 }
 
 TRASH_PENN_STATE = {
-    "paper": [
-        "shredded paper",
-        "paper towel",
-        "wax paper",
-        "food wrappers",
-    ],
+    "paper": ["shredded paper", "paper towel", "wax paper", "food wrappers",],
     "metal": [
         "empty chip bag",
         "granola bar wrapper",

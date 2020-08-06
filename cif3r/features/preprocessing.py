@@ -55,20 +55,20 @@ def _verify_filenames(df):
     return df
 
 
-def binary_datagen(university:str, verify_paths:bool=False):
+def binary_datagen(university: str, verify_paths: bool = False):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     binary_query = """
     SELECT
         hash, recyclable
     FROM {}
-    """.format(university)
+    """.format(
+        university
+    )
     df = pd.read_sql(sql=binary_query, con=conn)
     df.columns = ["filename", "class"]
     grouped = df.groupby("class")
-    df = grouped.apply(
-        lambda x: x.sample(grouped.size().min()).reset_index(drop=True)
-    )
+    df = grouped.apply(lambda x: x.sample(grouped.size().min()).reset_index(drop=True))
     if verify_paths:
         df = _verify_filenames(df)
         return df
@@ -76,14 +76,16 @@ def binary_datagen(university:str, verify_paths:bool=False):
     return df
 
 
-def sample_all(university:str, verify_paths:bool=False):
+def sample_all(university: str, verify_paths: bool = False):
     data_dir = Path(__file__).resolve().parents[2] / "data/interim"
     conn = sqlite3.connect(str(data_dir / "metadata.sqlite3"))
     binary_query = """
     SELECT
         hash, subclass
     FROM {}
-    """.format(university)
+    """.format(
+        university
+    )
     df = pd.read_sql(sql=binary_query, con=conn)
     df.columns = ["filename", "class"]
     print(df.head())
@@ -94,7 +96,7 @@ def sample_all(university:str, verify_paths:bool=False):
     return df
 
 
-def datagen(university:str, balance_method:str=None, verify_paths:bool=False):
+def datagen(university: str, balance_method: str = None, verify_paths: bool = False):
     """Creates dataframe to be consumed by the Keras stream_from_dataframe method
     with columns 'filename' and 'class'. Joins together both trash and recycling data, 
     downsampling trash to prevent class imbalances. 
@@ -130,25 +132,27 @@ def datagen(university:str, balance_method:str=None, verify_paths:bool=False):
     for df in all_dfs:
         df.columns = ["filename", "class"]
     master_df = pd.concat(all_dfs).reset_index(drop=True)
-    
-    valid_techniques = ['oversampling', 'undersampling', None]
+
+    valid_techniques = ["oversampling", "undersampling", None]
     grouped = master_df.groupby("class")
-        
+
     if balance_method == None:
         df = master_df
-    elif balance_method == 'undersampling':
+    elif balance_method == "undersampling":
         df = grouped.apply(
             lambda x: x.sample(grouped.size().min()).reset_index(drop=True)
         )
         print(f"Sampling {grouped.size().min()} samples from each class...")
         return df
-    elif balance_method == 'oversampling':
+    elif balance_method == "oversampling":
         df = grouped.apply(
-            lambda x: x.sample(grouped.size().max(), replace=True).reset_index(drop=True)
+            lambda x: x.sample(grouped.size().max(), replace=True).reset_index(
+                drop=True
+            )
         )
         print(f"Sampling {grouped.size().max()} samples from each class...")
     else:
-        raise Exception(f'balance_method arument must be one of {valid_techniques}')
+        raise Exception(f"balance_method arument must be one of {valid_techniques}")
 
     if verify_paths:
         df = _verify_filenames(df)

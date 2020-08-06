@@ -25,6 +25,7 @@ DEPS = {
 }
 COLORS = {"UTK": "orange", "penn_state": "b"}
 
+
 def prediction_mapping(university: str):
     try:
         clf = tf.keras.models.load_model(
@@ -35,9 +36,13 @@ def prediction_mapping(university: str):
             f"Unable to find model. Valid  models include {MODEL_DIR.glob('*.h5')}"
         )
     print(clf.summary())
-    df = preprocessing.datagen(university, balance_method='undersampling', verify_paths=True)
-    #df = df.sample(n=int(len(df) / 5), random_state=42)
-    images = ImageDataGenerator().flow_from_dataframe(df, target_size=(105, 105), batch_size=64)
+    df = preprocessing.datagen(
+        university, balance_method="undersampling", verify_paths=True
+    )
+    # df = df.sample(n=int(len(df) / 5), random_state=42)
+    images = ImageDataGenerator().flow_from_dataframe(
+        df, target_size=(105, 105), batch_size=64
+    )
     y_hat = list(clf.predict(images))
     print(len(y_hat))
     df["y_hat"] = y_hat
@@ -48,34 +53,34 @@ def prediction_mapping(university: str):
 
 def plot_guideline_network(university: str):
     G = nx.Graph()
-    G.add_node(university, color='b')
-    for key in UNIVERSITIES[university]['R']:
-        G.add_node(key, color='b')
+    G.add_node(university, color="b")
+    for key in UNIVERSITIES[university]["R"]:
+        G.add_node(key, color="b")
         G.add_edge(university, key)
-        for sub in UNIVERSITIES[university]['R'][key]:
-            G.add_node(sub, color='g')
+        for sub in UNIVERSITIES[university]["R"][key]:
+            G.add_node(sub, color="g")
             G.add_edge(key, sub)
-    for key in UNIVERSITIES[university]['O']:
-        G.add_node(key, color='b')
+    for key in UNIVERSITIES[university]["O"]:
+        G.add_node(key, color="b")
         G.add_edge(university, key)
-        for sub in UNIVERSITIES[university]['O'][key]:
-            G.add_node(sub, color='r')
+        for sub in UNIVERSITIES[university]["O"][key]:
+            G.add_node(sub, color="r")
             G.add_edge(key, sub)
-    colors = [color for color in nx.get_node_attributes(G, 'color').values()]
-    plt.figure(figsize=(13,13))
+    colors = [color for color in nx.get_node_attributes(G, "color").values()]
+    plt.figure(figsize=(13, 13))
     plt.tight_layout()
     nx.draw_networkx(G, node_color=colors)
-    plt.savefig(VIZ_DIR / f'{university}_network')
+    plt.savefig(VIZ_DIR / f"{university}_network")
 
 
-def plot_class_dist(university:str):
-    conn = sqlite3.connect(str(PARENT_DIR / 'data/interim/metadata.sqlite3'))
+def plot_class_dist(university: str):
+    conn = sqlite3.connect(str(PARENT_DIR / "data/interim/metadata.sqlite3"))
     df = pd.read_sql("SELECT * FROM {}".format(university), conn)
     plt.figure()
     plt.tight_layout()
-    df.groupby(['stream']).size().plot(kind='barh', color=COLORS[university])
-    plt.xlabel('Count')
-    plt.savefig(VIZ_DIR / f'{university}_stream_histogram.png', bbox_inches='tight')
+    df.groupby(["stream"]).size().plot(kind="barh", color=COLORS[university])
+    plt.xlabel("Count")
+    plt.savefig(VIZ_DIR / f"{university}_stream_histogram.png", bbox_inches="tight")
 
 
 def plot_confusion_matrix(university: str):
@@ -97,7 +102,7 @@ def plot_confusion_matrix(university: str):
     plt.tight_layout()
     plt.xlabel("True label")
     plt.ylabel("Predicted label")
-    plt.savefig(VIZ_DIR / f"{university}_confusion_matrix.png", bbox_inches='tight')
+    plt.savefig(VIZ_DIR / f"{university}_confusion_matrix.png", bbox_inches="tight")
 
 
 def make_visualizations():
@@ -106,5 +111,5 @@ def make_visualizations():
 
 
 if __name__ == "__main__":
-    #make_visualizations()
-    plot_confusion_matrix('UTK')
+    # make_visualizations()
+    plot_confusion_matrix("UTK")

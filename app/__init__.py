@@ -3,6 +3,7 @@ from .config import app
 from .models import ClassMapping
 from cif3r.models import predict_model
 from cif3r.data.recycling_guidelines import UNIVERSITIES
+from cif3r.data import recycling_guidelines
 import cv2
 
 application = app
@@ -36,21 +37,15 @@ def main():
 def get_university_guidelines():
     if request.method == "GET":
         university = request.args.get("location", "university")
-        
     if request.method == "POST":
         university = request.args.get("location")
-        class_mappings = ClassMapping.query\
-            .filter(ClassMapping.university == university)\
-            .order_by(ClassMapping.key_index)
-        classes = [row for row in class_mappings.label]
-
+        class_mappings = recycling_guidelines.UNIVERSITIES[university]["R"]
+        classes = [row for row in class_mappings.keys()]
+        print(classes)
+        classes.append("trash")
         return render_template(
-            "uni.html",
-            result=predict_model.clf_factory(
-                university, img, classes
-            ),
+            "uni.html", result=predict_model.clf_factory(university, img, classes),
         )
-
     return render_template("uni.html")
 
 

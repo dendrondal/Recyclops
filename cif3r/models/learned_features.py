@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 from pathlib import Path
 
+
 class TensorBoard:
     def __init__(self, loader, classes, net):
         self.writer = SummaryWriter("reports/UTK")
@@ -83,8 +84,8 @@ class TensorBoard:
 
 def load_embeddings():
     embeddings = []
-    data_dir = Path(__file__).resolve().parents[2] / 'data/final'
-    for file in data_dir.glob('*.pt'):
+    data_dir = Path(__file__).resolve().parents[2] / "data/final"
+    for file in data_dir.glob("*.pt"):
         embeddings.append(torch.load(file))
     return embeddings
 
@@ -98,7 +99,7 @@ def embeddings_to_numpy(embedding_list):
         try:
             y.append(maps[i])
         except KeyError:
-            y.append('trash')
+            y.append("trash")
     print(y)
     return X, y
 
@@ -106,16 +107,16 @@ def embeddings_to_numpy(embedding_list):
 def class_mappings():
     mapping = dict()
     dict_dir = Path(__file__).resolve().parents[2] / "data/external"
-    with open(dict_dir / 'UTK.pickle', 'rb') as f:
+    with open(dict_dir / "UTK.pickle", "rb") as f:
         nested_dict = pickle.load(f)
-    for k in nested_dict['R'].keys():
-        for subcls in nested_dict['R'][k]:
+    for k in nested_dict["R"].keys():
+        for subcls in nested_dict["R"][k]:
             mapping[subcls] = k
     return mapping
 
 
 def pca(X):
-    clf  = PCA(n_components = 0.95)
+    clf = PCA(n_components=0.95)
     clf.fit(X)
     return clf.transform(X)
 
@@ -133,13 +134,13 @@ def tsne(X, y):
     features = tsne_obj.fit_transform(X)
 
     plt.figure(figsize=(10, 10))
-    cmap = ['r', 'g', 'b', 'm']
+    cmap = ["r", "g", "b", "m"]
     class_colors = {k: v for k, v in zip(list(set(y)), cmap)}
     for i, feature in enumerate(X):
         plt.scatter(
             features[i, 0],
             features[i, 1],
-            marker = 'o',
+            marker="o",
             color=class_colors[y[i]],
             linewidth="1",
             alpha=0.8,
@@ -150,9 +151,8 @@ def tsne(X, y):
     plt.savefig("/home/dal/CIf3R/reports/figures/protonet_tsne.png")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     X, y = embeddings_to_numpy(load_embeddings())
     lengths = [lst.shape for lst in X]
     X = pca(X)
     tsne(X, y)
-
