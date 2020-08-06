@@ -1,3 +1,4 @@
+import pickle
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
@@ -7,7 +8,6 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from pathlib import Path
-
 
 class TensorBoard:
     def __init__(self, loader, classes, net):
@@ -90,15 +90,34 @@ def load_embeddings():
         embeddings.append(torch.load(file))
     return embeddings
 
+
 def embeddings_to_numpy(embedding_list):
-    with torch.no_grad():
-        X = [list(d.values())[0].detach().numpy().reshape(1600,) for d in embedding_list]
-        y = [str(list(d.keys())[0]) for d in embedding_list]
+    X = [list(d.values())[0].detach().numpy().reshape(1600,) for d in embedding_list]
+    subclasses = [str(list(d.keys())[0]) for d in embedding_list]
+    maps = class_mappings()
+    y = []
+    for i in subclasses:
+        try:
+            y.append(maps[i])
+        except KeyError:
+            y.append('trash')
+    print(y)
     return X, y
 
 
+def class_mappings():
+    mapping = dict()
+    dict_dir = Path(__file__).resolve().parents[2] / "data/external"
+    with open(dict_dir / 'UTK.pickle', 'rb') as f:
+        nested_dict = pickle.load(f)
+    for k in nested_dict['R'].keys():
+        for subcls in nested_dict['R'][k]:
+            mapping[subcls] = k
+    return mapping
+
+
 def pca(X):
-    clf = PCA(n_components = 0.95)
+    clf  = PCA(n_components = 0.95)
     clf.fit(X)
     return clf.transform(X)
 
@@ -116,16 +135,17 @@ def tsne(X, y):
     features = tsne_obj.fit_transform(X)
 
     plt.figure(figsize=(10, 10))
-    cmap = plt.cm.rainbow(np.linspace(0, 1, 50))
-    for i, (color, stream) in enumerate(zip(cmap, y)):
+    cmap = ['r', 'g', 'b', 'm']
+    class_colors = {k: v for k, v in zip(list(set(y)), cmap)}
+    for i, feature in enumerate(X):
         plt.scatter(
             features[i, 0],
             features[i, 1],
             marker = 'o',
-            color=color,
+            color=class_colors[y[i]],
             linewidth="1",
             alpha=0.8,
-            label=stream,
+            label=y[i],
         )
     plt.legend(loc="best")
     plt.title("t-SNE on ProtoNet learned features")
@@ -135,8 +155,6 @@ def tsne(X, y):
 if __name__ == '__main__':
     X, y = embeddings_to_numpy(load_embeddings())
     lengths = [lst.shape for lst in X]
-    print(lengths)
     X = pca(X)
-    print(X[0].shape)
     tsne(X, y)
 
