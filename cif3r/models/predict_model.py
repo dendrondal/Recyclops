@@ -68,7 +68,6 @@ def main():
             y_encoded = [i for i in range(len(y))]
             knn.fit(X_supp, y_encoded)
             st.write(y[knn.predict(X_query)[0]])
-            st.write(knn.predict_proba(X_query))
 
 
 if __name__ == "__main__":
