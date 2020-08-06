@@ -6,6 +6,7 @@ from protonet import ProtoNet
 from dataset import transform
 from torchvision import transforms
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.decomposition import PCA
 import numpy as np
 import pickle
 from itertools import chain
@@ -58,12 +59,16 @@ def main():
         st.image(uploaded_file, caption="Uploaded Image.", use_column_width=True)
         with torch.no_grad():
             st.write("Classifying...")
+            pca = PCA(n_components=27)
             X_query = model.forward(image)
             X_supp, y = embeddings_to_numpy(load_embeddings())
-            knn = KNeighborsClassifier(n_jobs=-1)
+            X_supp = pca.fit_transform(X_supp)
+            X_query = pca.transform(X_query)
+            knn = KNeighborsClassifier(n_neighbors=5, weights='distance',  n_jobs=-1)
             y_encoded = [i for i in range(len(y))]
             knn.fit(X_supp, y_encoded)
             st.write(y[knn.predict(X_query)[0]])
+            st.write(knn.predict_proba(X_query))
 
 
 if __name__ == "__main__":
