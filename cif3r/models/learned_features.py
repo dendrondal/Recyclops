@@ -36,10 +36,8 @@ class TensorBoard:
 
     def plot_embedding(self, n=100):
         images, labels = iter(self.loader).next()
-        print(labels)
         perm = torch.randperm(len(images))
         imgs, lbls = images[perm][:n], labels[perm][:n]
-        print(len(imgs), len(lbls))
         features = images.view(-1, 28 * 28)
         self.writer.add_embedding(features, metadata=lbls, label_img=imgs.unsqueeze(1))
         self.writer.close()

@@ -77,7 +77,6 @@ def main(university):
             lambda x: feedforward(model, transform(x).unsqueeze_(0))
         )
         output = calculate_centroid(class_paths['embedding'].values)
-        print(output.shape)
         torch.save(
             {stream: output}, project_dir / "data" / "final" / f"{stream}_centroids.pt",
         )
