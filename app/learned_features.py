@@ -52,7 +52,6 @@ class TensorBoard:
     def plot_class_preds(self):
         images, labels = iter(self.loader).next()
         preds, probs = self.imgs_to_probs(images)
-        print(len(labels))
         fig = plt.figure(figsize=(12, 48))
         for idx in np.arange(4):
             ax = fig.add_subplot(1, 4, idx + 1, xticks=[], yticks=[])
@@ -84,7 +83,7 @@ class TensorBoard:
 
 def load_embeddings():
     embeddings = []
-    data_dir = Path(__file__).resolve().parents[2] / "data/final"
+    data_dir = Path(__file__).resolve().parents[1] / "data/final"
     for file in data_dir.glob("*.pt"):
         embeddings.append(torch.load(file))
     return embeddings
@@ -100,13 +99,12 @@ def embeddings_to_numpy(embedding_list):
             y.append(maps[i])
         except KeyError:
             y.append("trash")
-    print(y)
     return X, y
 
 
 def class_mappings():
     mapping = dict()
-    dict_dir = Path(__file__).resolve().parents[2] / "data/external"
+    dict_dir = Path(__file__).resolve().parents[1] / "data/external"
     with open(dict_dir / "UTK.pickle", "rb") as f:
         nested_dict = pickle.load(f)
     for k in nested_dict["R"].keys():
