@@ -1,18 +1,18 @@
+import pickle
+from itertools import chain
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import streamlit as st
 import torch
 from PIL import Image
-from pathlib import Path
-from torchvision import transforms
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.decomposition import PCA
-import numpy as np
-import pickle
-from itertools import chain
-from torchsummary import summary
-import pandas as pd
-from learned_features import load_embeddings, embeddings_to_numpy
-from protonet import ProtoNet
+from sklearn.neighbors import KNeighborsClassifier
+
 from dataset import transform
+from learned_features import embeddings_to_numpy, load_embeddings
+from protonet import ProtoNet
 
 
 @st.cache
@@ -39,6 +39,7 @@ def get_classes(university):
 
 
 def main():
+    st.set_option("deprecation.showfileUploaderEncoding", False)
     st.write(
         """
     # Recyclops
@@ -69,6 +70,7 @@ def main():
             y_encoded = [i for i in range(len(y))]
             knn.fit(X_supp, y_encoded)
             st.write(y[knn.predict(X_query)[0]])
+
 
 if __name__ == "__main__":
     main()
