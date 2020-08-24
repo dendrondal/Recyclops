@@ -2,8 +2,10 @@ from dataset import Recyclables
 from sampler import PrototypicalBatchSampler
 from protonet import ProtoNet
 from proto_loss import prototypical_loss as loss_fn
+from learned_features import TensorBoard
 from parser_util import get_parser
 from tqdm import tqdm
+import torch.nn.functional as F
 from pathlib import Path
 import torch
 import numpy as np
@@ -72,7 +74,13 @@ def init_lr_scheduler(opt, optim):
     )
 
 
-def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
+def save_list_to_file(path, thelist):
+    with open(path, 'w') as f:
+        for item in thelist:
+            f.write("%s\n" % item)
+
+
+def train(opt, tr_dataloader, model, optim, lr_scheduler, board, val_dataloader=None):
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     train_loss = []
     train_acc = []
@@ -99,17 +107,26 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
             optim.step()
             train_loss.append(loss.item())
             train_acc.append(acc.item())
+        #Image grids
+
+        board.plot_class_preds()
+        board.write_grid()
 
         avg_loss = np.mean(train_loss[-opt.iterations :])
         avg_acc = np.mean(train_acc[-opt.iterations :])
         print(f"Loss: {avg_loss}, Accuracy: {avg_acc}")
+        board.writer.add_scalar('training loss', avg_loss, epoch)
+        board.writer.add_scalar('training accuracy', avg_acc, epoch)
         lr_scheduler.step()
 
         if val_dataloader is None:
+            best_state = None
             continue
 
         val_iter = iter(val_dataloader)
         model.eval()
+        class_probs = []
+        class_preds = []
         for batch in val_iter:
             x, y = batch
             x, y = x.to(device), y.to(device)
@@ -117,8 +134,20 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
             loss, acc = loss_fn(model_output, target=y, n_support=opt.num_support_val)
             val_loss.append(loss.item())
             val_acc.append(acc.item())
+            #Callbacks for PR curve
+            class_probs_batch = [F.softmax(el, dim=0) for el in model_output]
+            _, class_preds_batch = torch.max(model_output, 1)
+            class_probs.append(class_probs_batch)
+            class_preds.append(class_preds_batch)
+
+        
+        test_probs = torch.cat([torch.stack(batch) for batch in class_probs])
+        test_preds = torch.cat(class_preds)
+        board.plot_pr_curves(test_probs, test_preds)
         avg_loss = np.mean(val_loss[-opt.iterations :])
         avg_acc = np.mean(val_acc[-opt.iterations :])
+        board.writer.add_scalar('val loss', avg_loss, epoch)
+        board.writer.add_scalar('val accuracy', avg_acc, epoch)
         postfix = " (Best)" if avg_acc >= best_acc else " (Best: {})".format(best_acc)
         print("Avg Val Loss: {}, Avg Val Acc: {}{}".format(avg_loss, avg_acc, postfix))
         if avg_acc >= best_acc:
@@ -169,12 +198,15 @@ def main():
     model = init_protonet()
     optim = init_optim(options, model)
     lr_scheduler = init_lr_scheduler(options, optim)
+
+    board = TensorBoard(tr_dataloader, init_dataset(options).labels, model)
     res = train(
         opt=options,
         tr_dataloader=tr_dataloader,
-        val_dataloader=val_dataloader,
+        val_dataloader=None,
         model=model,
         optim=optim,
+        board=board,
         lr_scheduler=lr_scheduler,
     )
     best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
