@@ -46,7 +46,7 @@ def get_parser():
         "--classes_per_it_tr",
         type=int,
         help="number of random classes per episode for training, default=15",
-        default=13,
+        default=15,
     )
 
     parser.add_argument(
@@ -54,7 +54,7 @@ def get_parser():
         "--num_support_tr",
         type=int,
         help="number of samples per class to use as support for training, default=5",
-        default=4,
+        default=5,
     )
 
     parser.add_argument(
@@ -62,7 +62,7 @@ def get_parser():
         "--num_query_tr",
         type=int,
         help="number of samples per class to use as query for training, default=5",
-        default=3,
+        default=5,
     )
 
     parser.add_argument(
@@ -70,7 +70,7 @@ def get_parser():
         "--classes_per_it_val",
         type=int,
         help="number of random classes per episode for validation, default=5",
-        default=10,
+        default=5,
     )
 
     parser.add_argument(
@@ -78,7 +78,7 @@ def get_parser():
         "--num_support_val",
         type=int,
         help="number of samples per class to use as support for validation, default=5",
-        default=3,
+        default=5,
     )
 
     parser.add_argument(
@@ -86,7 +86,7 @@ def get_parser():
         "--num_query_val",
         type=int,
         help="number of samples per class to use as query for validation, default=15",
-        default=4,
+        default=15,
     )
 
     parser.add_argument(

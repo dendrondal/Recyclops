@@ -47,7 +47,7 @@ def create_metadata(table_name):
         for stream in guideline_dict[key]:
             for subclass in guideline_dict[key][stream]:
                 folder = data_path / key / subclass.replace(" ", "_")
-                for img in folder.glob("*.jpg"):
+                for img in folder.glob("*.jp*g"):
                     query = """
                     INSERT INTO {} (hash, recyclable, stream, subclass) VALUES (?, ?, ?, ?)
                     """.format(
