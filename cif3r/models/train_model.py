@@ -20,7 +20,6 @@ def init_seed(opt):
 def init_dataset(opt):
     dataset = Recyclables(opt.university, opt.num_support_tr + opt.num_query_tr)
     n_classes = len(np.unique(dataset.labels))
-    print(n_classes)
     if n_classes < opt.classes_per_it_tr or n_classes < opt.classes_per_it_val:
         raise (
             Exception(
@@ -107,16 +106,18 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, board, val_dataloader=
             optim.step()
             train_loss.append(loss.item())
             train_acc.append(acc.item())
-        #Image grids
-
-        board.plot_class_preds()
-        board.write_grid()
 
         avg_loss = np.mean(train_loss[-opt.iterations :])
         avg_acc = np.mean(train_acc[-opt.iterations :])
         print(f"Loss: {avg_loss}, Accuracy: {avg_acc}")
-        board.writer.add_scalar('training loss', avg_loss, epoch)
-        board.writer.add_scalar('training accuracy', avg_acc, epoch)
+        if board:
+            board.writer.add_scalar('training loss', avg_loss, epoch)
+            board.writer.add_scalar('training accuracy', avg_acc, epoch)
+            #Image grids
+
+            #board.plot_class_preds()
+            #board.write_grid()
+
         lr_scheduler.step()
 
         if val_dataloader is None:
@@ -143,11 +144,14 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, board, val_dataloader=
         
         test_probs = torch.cat([torch.stack(batch) for batch in class_probs])
         test_preds = torch.cat(class_preds)
-        board.plot_pr_curves(test_probs, test_preds)
-        avg_loss = np.mean(val_loss[-opt.iterations :])
-        avg_acc = np.mean(val_acc[-opt.iterations :])
-        board.writer.add_scalar('val loss', avg_loss, epoch)
-        board.writer.add_scalar('val accuracy', avg_acc, epoch)
+        if board:
+            board.writer.add_scalar('val loss', avg_loss, epoch)
+            board.writer.add_scalar('val accuracy', avg_acc, epoch)
+            avg_loss = np.mean(val_loss[-opt.iterations :])
+            avg_acc = np.mean(val_acc[-opt.iterations :])
+            
+            board.plot_pr_curves(test_probs, test_preds)
+
         postfix = " (Best)" if avg_acc >= best_acc else " (Best: {})".format(best_acc)
         print("Avg Val Loss: {}, Avg Val Acc: {}{}".format(avg_loss, avg_acc, postfix))
         if avg_acc >= best_acc:
@@ -206,7 +210,7 @@ def main():
         val_dataloader=None,
         model=model,
         optim=optim,
-        board=board,
+        board=None,
         lr_scheduler=lr_scheduler,
     )
     best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
