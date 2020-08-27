@@ -1,6 +1,7 @@
+import pickle
 import sqlite3
 from pathlib import Path
-import pickle
+
 import click
 
 
@@ -18,6 +19,12 @@ def create_metadata(table_name):
 
     project_dir = Path(__file__).resolve().parents[2]
     data_path = project_dir / "data" / "interim"
+    guideline_dir = project_dir / "data/external"
+    valid_names = [f.stem for f in guideline_dir.glob("*.pickle")]
+    if table_name not in valid_names:
+        raise Exception(
+            """Table name must be one of the following: {}""".format(valid_names)
+        )
     db_path = data_path / "metadata.sqlite3"
     guideline_path = project_dir / "data/external" / f"{table_name}.pickle"
     conn = sqlite3.connect(str(db_path))
