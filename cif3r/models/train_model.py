@@ -1,5 +1,7 @@
+import time
 from pathlib import Path
 
+import boto3
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -81,7 +83,9 @@ def save_list_to_file(path, thelist):
             f.write("%s\n" % item)
 
 
-def train(opt, tr_dataloader, model, optim, lr_scheduler, board, val_dataloader=None):
+def train(
+    opt, tr_dataloader, model, optim, lr_scheduler, board, s3_conn, val_dataloader=None
+):
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     train_loss = []
     train_acc = []
@@ -157,13 +161,20 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, board, val_dataloader=
         print("Avg Val Loss: {}, Avg Val Acc: {}{}".format(avg_loss, avg_acc, postfix))
         if avg_acc >= best_acc:
             torch.save(model.state_dict(), best_model_path)
+            s3_conn.upload_file(str(best_model_path), "cif3r", "best_model.pth")
             best_acc = avg_acc
             best_state = model.state_dict()
 
     torch.save(model.state_dict(), last_model_path)
+    s3_conn.upload_file(str(last_model_path), "cif3r", "last_model.pth")
 
     for name in ["train_loss", "train_acc", "val_loss", "val_acc"]:
         save_list_to_file(model_dir / f"{name}.txt", locals()[name])
+        s3_conn.upload_file(
+            str(model_dir / f"{name}.txt"),
+            "cif3r",
+            "{name}_{int(time.time())}_metrics.txt",
+        )
 
     return best_state, best_acc, train_loss, train_acc, val_loss, val_acc
 
@@ -203,6 +214,7 @@ def main():
     model = init_protonet()
     optim = init_optim(options, model)
     lr_scheduler = init_lr_scheduler(options, optim)
+    conn = boto3.client("s3")
 
     board = TensorBoard(tr_dataloader, init_dataset(options).labels, model)
     res = train(
@@ -212,6 +224,7 @@ def main():
         model=model,
         optim=optim,
         board=None,
+        s3_conn=conn,
         lr_scheduler=lr_scheduler,
     )
     best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
