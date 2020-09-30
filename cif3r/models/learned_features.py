@@ -1,13 +1,14 @@
 import pickle
-from torch.utils.tensorboard import SummaryWriter
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-import torchvision
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-from pathlib import Path
+import torchvision
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from torch.utils.tensorboard import SummaryWriter
 
 
 class TensorBoard:
@@ -100,7 +101,6 @@ def embeddings_to_numpy(embedding_list):
             y.append(maps[i])
         except KeyError:
             y.append("trash")
-    print(y)
     return X, y
 
 

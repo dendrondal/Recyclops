@@ -1,18 +1,21 @@
+import pickle
+from itertools import chain
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import streamlit as st
 import torch
 from PIL import Image
-from pathlib import Path
-from protonet import ProtoNet
-from dataset import transform
-from torchvision import transforms
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.decomposition import PCA
-import numpy as np
-import pickle
-from itertools import chain
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import LabelBinarizer
 from torchsummary import summary
-import pandas as pd
-from learned_features import load_embeddings, embeddings_to_numpy
+from torchvision import transforms
+
+from dataset import transform
+from learned_features import embeddings_to_numpy, load_embeddings
+from protonet import ProtoNet
 
 
 @st.cache
@@ -66,9 +69,10 @@ def main():
             X_supp = pca.fit_transform(X_supp)
             X_query = pca.transform(X_query)
             knn = KNeighborsClassifier(n_neighbors=5, weights="distance", n_jobs=-1)
-            y_encoded = [i for i in range(len(y))]
+            encoder = LabelBinarizer()
+            y_encoded = encoder.fit_transform(y)
             knn.fit(X_supp, y_encoded)
-            st.write(y[knn.predict(X_query)[0]])
+            st.write(encoder.inverse_transform(X_query))
 
 
 if __name__ == "__main__":
