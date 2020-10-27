@@ -2,6 +2,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+import boto3
 import click
 import numpy as np
 import pandas as pd
@@ -19,7 +20,7 @@ from dataset import transform
 from learned_features import embeddings_to_numpy, load_embeddings
 
 
-def plot_confusion_matrix(df, university, VIZ_DIR):
+def plot_confusion_matrix(df, university, VIZ_DIR, conn):
     """
     Determines classification accuracy of distance-based 
     metric
@@ -40,7 +41,9 @@ def plot_confusion_matrix(df, university, VIZ_DIR):
     plt.tight_layout()
     plt.xlabel("True label")
     plt.ylabel("Predicted label")
-    plt.savefig(VIZ_DIR / f"{university}_confustion_matrix.png", bbox_inches="tight")
+    plot_name = VIZ_DIR / f"{university}_confustion_matrix.png"
+    plt.savefig(plot_name, bbox_inches="tight")
+    conn.upload_file(str(plot_name), "cif3r", f"{university}_con_mat")
 
 
 def ETL(model, pca, conn, university):
@@ -118,7 +121,8 @@ def main(university):
         np.array([arr.reshape(-1, 1) for arr in X_train])[:, :, 0], y_train.flatten()
     )
     pred_df = inference(df, clf)
-    plot_confusion_matrix(pred_df, university, viz_dir)
+    conn = boto3.client("s3")
+    plot_confusion_matrix(pred_df, university, viz_dir, conn)
 
 
 if __name__ == "__main__":
